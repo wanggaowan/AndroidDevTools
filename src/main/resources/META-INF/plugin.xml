@@ -1,0 +1,58 @@
+<idea-plugin>
+    <id>com.wanggaowan.android.dev.tools</id>
+    <name>AndroidDevTools</name>
+    <vendor email="wanggaowan@163.com" url="https://github.com/wanggaowan/AndroidDevTools"/>
+
+    <description><![CDATA[
+    <h2>提供Android开发所需工具</h2>
+    <ol>
+      <li>复制不同分辨率下的相同文件</li>
+      <li>带目录复制文件</li>
+      <li>从外部导入不同分辨率下的相同图片</li>
+    </ol>
+  ]]></description>
+
+    <change-notes><![CDATA[
+    <p>1.0</p>
+    <ul>
+      <li>新增复制不同分辨率下的相同文件功能</li>
+      <li>新增带目录复制文件功能</li>
+      <li>新增从外部导入不同分辨率下的相同图片功能</li>
+    </ul>
+    ]]>
+    </change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+    </extensions>
+
+    <projectListeners>
+        <listener class="com.wanggaowan.android.dev.tools.listener.MyProjectManagerListener"
+                  topic="com.intellij.openapi.project.ProjectManagerListener"/>
+    </projectListeners>
+
+    <actions>
+        <group id="Android Dev Tools"
+               text="Android Dev Tools"
+               popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="com.wanggaowan.android.dev.tools.actions.ImportSameImageResAction"
+                    class="com.wanggaowan.android.dev.tools.actions.ImportSameImageResAction"
+                    text="导入不同分辨率下的相同图片">
+            </action>
+        </group>
+
+        <action id="com.wanggaowan.android.dev.tools.actions.CopyMultiSameNameFileAction"
+                class="com.wanggaowan.android.dev.tools.actions.CopyMultiSameNameFileAction" text="复制不同分辨率下的相同图片"
+                description="复制不同的分辨率下同名称的文件">
+            <add-to-group group-id="CutCopyPasteGroup" anchor="before" relative-to-action="$Paste"/>
+        </action>
+        <action id="com.wanggaowan.android.dev.tools.actions.CopyFileWithFolderAction"
+                class="com.wanggaowan.android.dev.tools.actions.CopyFileWithFolderAction" text="带目录复制文件"
+                description="复制文件及文件的目录">
+            <add-to-group group-id="CutCopyPasteGroup" anchor="after"
+                          relative-to-action="com.wanggaowan.android.dev.tools.actions.CopyMultiSameNameFileAction"/>
+        </action>
+    </actions>
+</idea-plugin>
