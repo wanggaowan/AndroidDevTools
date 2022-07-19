@@ -12,6 +12,7 @@ import com.intellij.ide.util.treeView.NodeRenderer
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.MessageType
 import com.intellij.openapi.util.Condition
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.WindowManager
@@ -22,6 +23,7 @@ import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ArrayUtil
 import com.intellij.util.ui.JBUI
 import com.wanggaowan.android.dev.tools.listener.SimpleComponentListener
+import com.wanggaowan.android.dev.tools.utils.Toast
 import java.awt.*
 import java.awt.event.ComponentEvent
 import javax.swing.*
@@ -377,6 +379,10 @@ class ImportImageFolderChooser(
     }
 
     private fun doOKAction() {
+        if (mSelectedFolder == null || !mSelectedFolder!!.isDirectory) {
+            Toast.show(rootPane, MessageType.ERROR, "请选择文件夹")
+            return
+        }
         isVisible = false
         mOkActionListener?.invoke()
     }

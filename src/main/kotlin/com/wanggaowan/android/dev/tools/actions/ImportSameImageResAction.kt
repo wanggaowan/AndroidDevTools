@@ -1,5 +1,6 @@
 package com.wanggaowan.android.dev.tools.actions
 
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.command.WriteCommandAction
@@ -9,6 +10,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.wanggaowan.android.dev.tools.ui.ImportImageFolderChooser
+import com.wanggaowan.android.dev.tools.utils.NotificationUtils
 
 
 /**
@@ -155,10 +157,16 @@ class ImportSameImageResAction : AnAction() {
                 val map = renameMap[mapFolder]
                 mapFiles[folder.name]?.let {
                     it.forEach { child ->
-                        child.copy(null, folder, map?.get(child.name) ?: child.name)
+                        try {
+                            child.copy(null, folder, map?.get(child.name) ?: child.name)
+                        } catch (e: Exception) {
+                            // 可能是导入文件以及存在
+                        }
                     }
                 }
             }
+
+            NotificationUtils.showBalloonMsg(project, "图片已导入", NotificationType.INFORMATION)
         }
     }
 }
