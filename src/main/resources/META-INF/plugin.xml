@@ -13,6 +13,11 @@
   ]]></description>
 
     <change-notes><![CDATA[
+    <p>1.1</p>
+    <ul>
+      <li>从外部导入不同分辨率下的相同图片模块增加重命名导入文件及选择导入指定目录功能</li>
+    </ul>
+
     <p>1.0</p>
     <ul>
       <li>新增复制不同分辨率下的相同文件功能</li>
@@ -39,7 +44,7 @@
             <add-to-group group-id="ToolsMenu" anchor="last"/>
             <action id="com.wanggaowan.android.dev.tools.actions.ImportSameImageResAction"
                     class="com.wanggaowan.android.dev.tools.actions.ImportSameImageResAction"
-                    text="导入不同分辨率下的相同图片">
+                    text="导入不同分辨率下的相同文件">
             </action>
         </group>
 
