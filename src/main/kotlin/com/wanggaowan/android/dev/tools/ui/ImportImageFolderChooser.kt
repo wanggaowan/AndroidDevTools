@@ -15,6 +15,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageType
 import com.intellij.openapi.util.Condition
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiFile
 import com.intellij.ui.ColorUtil
@@ -137,6 +138,7 @@ class ImportImageFolderChooser(
 ) : JDialog() {
     private lateinit var myTree: Tree
     private lateinit var mBtnOk: JButton
+    private lateinit var mJChosenFolder: JLabel
 
     /**
      * 切换文件选择/重命名面板的父面板
@@ -151,7 +153,7 @@ class ImportImageFolderChooser(
     private var mBuilder: ProjectTreeBuilder? = null
     private val mDisableStructureProviders = false
     private val mShowLibraryContents = false
-    private var mCardShow = CARD_FILE
+    private var mCardShow = CARD_RENAME
     private var mRenameFileMap = mutableMapOf<String, MutableMap<String, String>>()
 
     /**
@@ -170,8 +172,8 @@ class ImportImageFolderChooser(
         contentPane = rootPanel
         val layout = CardLayout()
         mCardPane = JPanel(layout)
-        mCardPane.add(createFileChoosePanel(), CARD_FILE)
         mCardPane.add(createRenameFilePanel(renameFiles), CARD_RENAME)
+        mCardPane.add(createFileChoosePanel(), CARD_FILE)
         rootPanel.add(mCardPane, BorderLayout.CENTER)
         rootPanel.add(createAction(), BorderLayout.SOUTH)
         pack()
@@ -179,9 +181,16 @@ class ImportImageFolderChooser(
         if (initialFile != null) {
             // dialog does not exist yet
             SwingUtilities.invokeLater { selectFolder(initialFile) }
+            mSelectedFolder = initialFile
+            mBtnOk.isEnabled = true
+            if (mSelectedFolder == null) {
+                mJChosenFolder.text = null
+            } else {
+                mJChosenFolder.text = mSelectedFolder?.path?.replace(project.basePath ?: "", "")
+            }
+        } else {
+            mBtnOk.isEnabled = false
         }
-
-        SwingUtilities.invokeLater { handleSelectionChanged() }
     }
 
     override fun setVisible(b: Boolean) {
@@ -276,9 +285,22 @@ class ImportImageFolderChooser(
                 title.preferredSize = JBUI.size(200, 35)
                 panel.add(title, BorderLayout.WEST)
 
+                val box = Box.createVerticalBox()
+                panel.add(box, BorderLayout.CENTER)
+
                 val rename = JTextField(it2.value)
                 rename.preferredSize = JBUI.size(290, 35)
-                panel.add(rename, BorderLayout.CENTER)
+                box.add(rename)
+
+                val box2 = Box.createHorizontalBox()
+                val hint = JLabel("已存在同名文件,此文件将不会导入")
+                hint.foreground = Color.RED
+                val renameFont = rename.font
+                hint.font = Font(null, renameFont.style, if (renameFont == null) 12 else renameFont.size - 4)
+                hint.isVisible = isImageExist(it.key == "Drawable", it2.value)
+                box2.add(hint)
+                box2.add(Box.createHorizontalGlue())
+                box.add(box2)
 
                 rootPane.add(panel)
 
@@ -288,6 +310,7 @@ class ImportImageFolderChooser(
                         val str = rename.text.trim()
                         mRenameFileMap[it.key]?.let { map ->
                             map[it2.key] = str
+                            hint.isVisible = isImageExist(it.key == "Drawable", str)
                         }
                     }
 
@@ -295,6 +318,7 @@ class ImportImageFolderChooser(
                         val str = rename.text.trim()
                         mRenameFileMap[it.key]?.let { map ->
                             map[it2.key] = str
+                            hint.isVisible = isImageExist(it.key == "Drawable", str)
                         }
                     }
 
@@ -302,6 +326,7 @@ class ImportImageFolderChooser(
                         val str = rename.text.trim()
                         mRenameFileMap[it.key]?.let { map ->
                             map[it2.key] = str
+                            hint.isVisible = isImageExist(it.key == "Drawable", str)
                         }
                     }
                 })
@@ -316,8 +341,11 @@ class ImportImageFolderChooser(
                         for (component2 in component.components) {
                             if (component2 is JLabel) {
                                 component2.preferredSize = Dimension((width * 0.4).toInt(), JBUI.scale(35))
-                            } else if (component2 is JTextField) {
-                                component2.preferredSize = Dimension(width - (width * 0.4).toInt() - 10, JBUI.scale(35))
+                            } else if (component2 is Box) {
+                                val child = component2.getComponent(0)
+                                if (child is JTextField) {
+                                    child.preferredSize = Dimension(width - (width * 0.4).toInt() - 10, JBUI.scale(35))
+                                }
                             }
                         }
                     }
@@ -340,21 +368,26 @@ class ImportImageFolderChooser(
     private fun createAction(): JComponent {
         val bottomPane = Box.createHorizontalBox()
         bottomPane.border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
-        val renameBtn = JButton("重命名导入的文件")
-        bottomPane.add(renameBtn)
+        mJChosenFolder = JLabel()
+        mJChosenFolder.border = BorderFactory.createEmptyBorder(0, 0, 0, 10)
+        bottomPane.add(mJChosenFolder)
+        val chooseFolderBtn = JButton("change folder")
+        bottomPane.add(chooseFolderBtn)
         bottomPane.add(Box.createHorizontalGlue())
         val cancelBtn = JButton("cancel")
         bottomPane.add(cancelBtn)
-        mBtnOk = JButton("ok")
+        mBtnOk = JButton("import")
         bottomPane.add(mBtnOk)
 
-        renameBtn.addActionListener {
-            if (mCardShow == CARD_FILE) {
-                renameBtn.isVisible = false
+        chooseFolderBtn.addActionListener {
+            if (mCardShow == CARD_RENAME) {
+                chooseFolderBtn.isVisible = false
                 cancelBtn.isVisible = false
-                mCardShow = CARD_RENAME
+                mBtnOk.text = "ok"
+                mCardShow = CARD_FILE
                 val layout = mCardPane.layout as CardLayout
-                layout.show(mCardPane, CARD_RENAME)
+                layout.show(mCardPane, CARD_FILE)
+                myTree.requestFocus()
             }
         }
 
@@ -363,13 +396,13 @@ class ImportImageFolderChooser(
         }
 
         mBtnOk.addActionListener {
-            if (mCardShow == CARD_RENAME) {
-                renameBtn.isVisible = true
+            if (mCardShow == CARD_FILE) {
+                chooseFolderBtn.isVisible = true
                 cancelBtn.isVisible = true
-                mCardShow = CARD_FILE
+                mBtnOk.text = "import"
+                mCardShow = CARD_RENAME
                 val layout = mCardPane.layout as CardLayout
-                layout.show(mCardPane, CARD_FILE)
-                myTree.requestFocus()
+                layout.show(mCardPane, CARD_RENAME)
             } else {
                 doOKAction()
             }
@@ -401,7 +434,7 @@ class ImportImageFolderChooser(
         // Select element in the tree
         ApplicationManager.getApplication().invokeLater({
             @Suppress("UnstableApiUsage")
-            mBuilder?.selectAsync(file, file, true)
+            mBuilder?.selectAsync(file, file, false)
         }, ModalityState.stateForComponent(rootPane))
     }
 
@@ -421,6 +454,11 @@ class ImportImageFolderChooser(
 
     private fun handleSelectionChanged() {
         mBtnOk.isEnabled = isChosenFolder()
+        if (mSelectedFolder == null) {
+            mJChosenFolder.text = null
+        } else {
+            mJChosenFolder.text = mSelectedFolder?.path?.replace(project.basePath ?: "", "")
+        }
     }
 
     private fun isChosenFolder(): Boolean {
@@ -430,6 +468,7 @@ class ImportImageFolderChooser(
         val vFile = userObject.virtualFile
         return (vFile != null).apply {
             mSelectedFolder = vFile
+
         }
     }
 
@@ -467,6 +506,83 @@ class ImportImageFolderChooser(
             result.add(obj)
         }
         return ArrayUtil.toObjectArray(result)
+    }
+
+    /**
+     * 判断指定图片是否已存在
+     */
+    private fun isImageExist(isDrawable: Boolean, fileName: String): Boolean {
+        val rootDir = mSelectedFolder?.path ?: return false
+
+        var selectFile: VirtualFile? = null
+        if (isDrawable) {
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xhdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xxhdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-hdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-mdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xxxhdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-nodpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+        } else {
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-xhdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-xxhdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-hdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-mdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-xxxhdpi/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+
+            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap/$fileName")
+            if (selectFile != null) {
+                return true
+            }
+        }
+
+        return false
     }
 
     companion object {

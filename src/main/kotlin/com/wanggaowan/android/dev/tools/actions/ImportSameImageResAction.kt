@@ -32,7 +32,7 @@ class ImportSameImageResAction : AnAction() {
                         VirtualFileManager.getInstance().findFileByUrl("file://${projectDir}/app/src/main/res")
                 }
 
-                val dialog = ImportImageFolderChooser(project, "选择导入的文件夹", selectFile, distinctFiles)
+                val dialog = ImportImageFolderChooser(project, "导入图片", selectFile, distinctFiles)
                 dialog.setOkActionListener {
                     val file = dialog.getSelectedFolder() ?: return@setOkActionListener
                     importImages(project, distinctFiles, file, dialog.getRenameFileMap())
@@ -50,8 +50,23 @@ class ImportSameImageResAction : AnAction() {
         selectedFiles.forEach {
             if (it.isDirectory) {
                 it.children?.forEach { child ->
-                    if (!child.isDirectory) {
-                        dataList.add(child)
+                    val name = child.name
+                    if (!name.startsWith(".")) {
+                        if (!child.isDirectory) {
+                            dataList.add(child)
+                        } else if (name.startsWith("drawable")
+                            || name.startsWith("mipmap")
+                        ) {
+                            // 只解析两层目录
+                            child.children?.forEach { child2 ->
+                                val name2 = child2.name
+                                if (!name2.startsWith(".")) {
+                                    if (!child2.isDirectory) {
+                                        dataList.add(child2)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             } else {
