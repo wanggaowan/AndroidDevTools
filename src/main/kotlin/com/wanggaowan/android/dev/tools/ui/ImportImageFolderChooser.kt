@@ -27,6 +27,7 @@ import com.wanggaowan.android.dev.tools.listener.SimpleComponentListener
 import com.wanggaowan.android.dev.tools.utils.Toast
 import java.awt.*
 import java.awt.event.ComponentEvent
+import java.io.File
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
@@ -266,6 +267,7 @@ class ImportImageFolderChooser(
         }
 
         var totalHeight = 0
+        val isDarkTheme = ColorUtil.isDark(background)
         mRenameFileMap.forEach {
             val type = JLabel(it.key + "：")
             type.preferredSize = JBUI.size(500, 40)
@@ -281,15 +283,25 @@ class ImportImageFolderChooser(
                 panel.border = BorderFactory.createEmptyBorder(0, 5, 5, 5)
                 totalHeight += 40
 
+                val titleBox = Box.createHorizontalBox()
+                val imageFile = getFile(files, it.key == "Drawable", it2.key)
+                if (imageFile != null) {
+                    val imageView = ImageView(imageFile, isDarkTheme)
+                    imageView.preferredSize = JBUI.size(35)
+                    imageView.border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
+                    titleBox.add(imageView)
+                }
+
                 val title = JLabel(it2.key + "：")
                 title.preferredSize = JBUI.size(200, 35)
-                panel.add(title, BorderLayout.WEST)
+                titleBox.add(title)
+                panel.add(titleBox, BorderLayout.WEST)
 
                 val box = Box.createVerticalBox()
                 panel.add(box, BorderLayout.CENTER)
 
                 val rename = JTextField(it2.value)
-                rename.preferredSize = JBUI.size(290, 35)
+                rename.preferredSize = JBUI.size(250, 35)
                 box.add(rename)
 
                 val box2 = Box.createHorizontalBox()
@@ -360,6 +372,26 @@ class ImportImageFolderChooser(
         scrollPane.border = LineBorder(Config.getLineColor(), 0, 0, 1, 0)
         scrollPane.preferredSize = JBUI.size(500, 300)
         return scrollPane
+    }
+
+    private fun getFile(files: List<VirtualFile>?, isDrawable: Boolean, name: String): File? {
+        if (files.isNullOrEmpty()) {
+            return null
+        }
+
+        for (file in files) {
+            if (isDrawable && file.path.contains("drawable")) {
+                if (file.name == name) {
+                    return File(file.path)
+                }
+            } else if (!isDrawable && file.path.contains("mipmap")) {
+                if (file.name == name) {
+                    return File(file.path)
+                }
+            }
+        }
+
+        return null
     }
 
     /**
@@ -514,7 +546,7 @@ class ImportImageFolderChooser(
     private fun isImageExist(isDrawable: Boolean, fileName: String): Boolean {
         val rootDir = mSelectedFolder?.path ?: return false
 
-        var selectFile: VirtualFile? = null
+        var selectFile: VirtualFile?
         if (isDrawable) {
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xhdpi/$fileName")
             if (selectFile != null) {
