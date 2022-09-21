@@ -187,7 +187,7 @@ class JsonToKotlinDialog(
                         val factory = KtPsiFactory(project)
                         val docFactory = KDocElementFactory(project)
                         if (mRootElement == null) {
-                            val element = createClass(factory, objName)
+                            val element = createClass(factory, docFactory, objName, null)
                             val lastChild = psiFile.lastChild
                             createJavaObjectOnJsonObject(factory, docFactory, jsonObject, element)
                             psiFile.addAfter(element, lastChild)
@@ -205,14 +205,25 @@ class JsonToKotlinDialog(
 
     private fun createClass(
         factory: KtPsiFactory,
-        name: String
+        docFactory: KDocElementFactory,
+        name: String,
+        doc: String?
     ): KtClass {
+        var kdoc: KDoc? = null
+        if (KTGsonFormatConfig.isJsonValueToDoc(project) && !doc.isNullOrEmpty()) {
+            // 不能把doc加到element，虽然此doc文档是属于element的，因为加到element下，doc结束符号'*/'与属性之间不会换行
+            // 即使在'*/'后加换行'*/\n'也无效
+            kdoc = docFactory.createKDocFromText("/**\n* $doc\n*/")
+        }
+
         val suffix = mObjSuffix.text.trim()
         val ktClass = if (KTGsonFormatConfig.isCreateDataClass(project)) {
             factory.createClass("data class ${name}${suffix}(\n)")
         } else {
             factory.createClass("class ${name}${suffix}{\n}")
         }
+        kdoc?.let { ktClass.addBefore(it, ktClass.firstChild) }
+
         return ktClass
     }
 
@@ -229,11 +240,22 @@ class JsonToKotlinDialog(
             } else if (obj.isJsonPrimitive) {
                 addField(factory, docFactory, it, obj as JsonPrimitive, parentElement)
             } else if (obj.isJsonObject) {
-                val className = StringUtils.toHumpFormat(it)
-                val suffix = mObjSuffix.text.trim()
-                addFieldForObjType(factory, it, className + suffix, false, parentElement)
+                var doc: String? = null
+                val key: String
+                if (it.contains("(") && it.contains(")")) {
+                    // 兼容周卓接口文档JSON, "dataList (产线数据)":[]
+                    val index = it.indexOf("(")
+                    doc = it.substring(index + 1, it.length - 1)
+                    key = it.substring(0, index).replace(" ", "")
+                } else {
+                    key = it
+                }
+                val className = StringUtils.toHumpFormat(key)
 
-                val element = createClass(factory, className)
+                val suffix = mObjSuffix.text.trim()
+                addFieldForObjType(factory, docFactory, key, className + suffix, false, parentElement, doc)
+
+                val element = createClass(factory, docFactory, className, doc)
                 createJavaObjectOnJsonObject(factory, docFactory, obj as JsonObject, element)
                 if (KTGsonFormatConfig.isCreateNestClass(project)) {
                     val body = parentElement.getOrCreateBody()
@@ -242,10 +264,21 @@ class JsonToKotlinDialog(
                     psiFile.add(element)
                 }
             } else if (obj.isJsonArray) {
-                val className = StringUtils.toHumpFormat(it)
+                var doc: String? = null
+                val key: String
+                if (it.contains("(") && it.contains(")")) {
+                    // 兼容周卓接口文档JSON, "dataList (产线数据)":[]
+                    val index = it.indexOf("(")
+                    doc = it.substring(index + 1, it.length - 1)
+                    key = it.substring(0, index).replace(" ", "")
+                } else {
+                    key = it
+                }
+                val className = StringUtils.toHumpFormat(key)
+
                 obj.asJsonArray.let { jsonArray ->
                     if (jsonArray.size() == 0) {
-                        addFieldForObjType(factory, it, "any", true, parentElement)
+                        addFieldForObjType(factory, docFactory, key, "any", true, parentElement, doc)
                         return@let
                     }
 
@@ -262,7 +295,7 @@ class JsonToKotlinDialog(
 
                             if (!isCreateObjChild) {
                                 isCreateObjChild = true
-                                val element = createClass(factory, className)
+                                val element = createClass(factory, docFactory, className, doc)
                                 createJavaObjectOnJsonObject(factory, docFactory, child as JsonObject, element)
                                 if (KTGsonFormatConfig.isCreateNestClass(project)) {
                                     val body = parentElement.getOrCreateBody()
@@ -295,22 +328,22 @@ class JsonToKotlinDialog(
                     }
 
                     if (!typeSame) {
-                        addFieldForObjType(factory, it, "any", true, parentElement)
+                        addFieldForObjType(factory, docFactory, key, "any", true, parentElement, doc)
                         return@let
                     }
 
                     when (type) {
                         null, "null" -> {
-                            addFieldForObjType(factory, it, "any", true, parentElement)
+                            addFieldForObjType(factory, docFactory, key, "any", true, parentElement, doc)
                         }
 
                         "JsonObject" -> {
                             val suffix = mObjSuffix.text.trim()
-                            addFieldForObjType(factory, it, className + suffix, true, parentElement)
+                            addFieldForObjType(factory, docFactory, key, className + suffix, true, parentElement, doc)
                         }
 
                         else -> {
-                            addFieldForObjType(factory, it, type!!, true, parentElement)
+                            addFieldForObjType(factory, docFactory, key, type!!, true, parentElement, doc)
                         }
                     }
                 }
@@ -372,10 +405,12 @@ class JsonToKotlinDialog(
 
     private fun addFieldForObjType(
         factory: KtPsiFactory,
+        docFactory: KDocElementFactory,
         key: String,
         typeName: String,
         isArray: Boolean,
-        parentElement: KtClass
+        parentElement: KtClass,
+        doc: String?
     ) {
 
         val content = if ("any" == typeName) {
@@ -383,6 +418,14 @@ class JsonToKotlinDialog(
         } else {
             if (isArray) "var $key: List<$typeName>? = null" else "var $key: $typeName? = null"
         }
+
+        var kDoc: KDoc? = null
+        if (KTGsonFormatConfig.isJsonValueToDoc(project) && !doc.isNullOrEmpty()) {
+            // 不能把doc加到element，虽然此doc文档是属于element的，因为加到element下，doc结束符号'*/'与属性之间不会换行
+            // 即使在'*/'后加换行'*/\n'也无效
+            kDoc = docFactory.createKDocFromText("/**\n* $doc\n*/")
+        }
+
         if (KTGsonFormatConfig.isCreateDataClass(project)) {
             var list = parentElement.getPrimaryConstructorParameterList()
             if (list == null) {
@@ -394,10 +437,13 @@ class JsonToKotlinDialog(
             }
 
             val element = factory.createParameter(content)
+            kDoc?.let { element.addBefore(it, element.firstChild) }
+
             list.addBefore(factory.createWhiteSpace("\n"), list.lastChild)
             list.addBefore(element, list.lastChild)
         } else {
             val element = factory.createProperty(content)
+            kDoc?.let { element.addBefore(it, element.firstChild) }
 
             val body = parentElement.getOrCreateBody()
             addFieldBeforeClass(body, element)

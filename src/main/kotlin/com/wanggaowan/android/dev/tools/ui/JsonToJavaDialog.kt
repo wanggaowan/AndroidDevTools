@@ -119,14 +119,14 @@ class JsonToJavaDialog(
                 override fun run(progressIndicator: ProgressIndicator) {
                     progressIndicator.isIndeterminate = true
                     WriteCommandAction.runWriteCommandAction(project) {
-                        val elementFactory = JavaPsiFacade.getElementFactory(project)
+                        val factory = JavaPsiFacade.getElementFactory(project)
                         if (mRootElement == null) {
-                            val element = createClass(elementFactory, objName)
+                            val element = createClass(factory, objName)
                             val lastChild = psiFile.lastChild
-                            createJavaObjectOnJsonObject(elementFactory, jsonObject, element)
+                            createJavaObjectOnJsonObject(factory, jsonObject, element)
                             psiFile.addAfter(element, lastChild)
                         } else {
-                            createJavaObjectOnJsonObject(elementFactory, jsonObject, mRootElement!!)
+                            createJavaObjectOnJsonObject(factory, jsonObject, mRootElement!!)
                         }
                         reformatFile(project, psiFile)
                     }
@@ -153,38 +153,62 @@ class JsonToJavaDialog(
      */
     private fun createStaticClass(
         elementFactory: PsiElementFactory,
-        name: String
+        name: String,
+        doc: String?
     ): PsiElement {
         val suffix = mObjSuffix.text.trim()
-        val classText = "public static class ${name}${suffix} {}"
+        val classText = if (doc.isNullOrEmpty() || !mCbCreateDoc.isSelected) "public static class ${name}${suffix} {}"
+        else "/**\n* $doc\n*/public static class ${name}${suffix} {}"
         return elementFactory.createClassFromText(classText, null).innerClasses[0]
     }
 
     private fun createJavaObjectOnJsonObject(
-        elementFactory: PsiElementFactory,
+        factory: PsiElementFactory,
         jsonObject: JsonObject,
         parentElement: PsiElement
     ) {
         jsonObject.keySet().forEach {
             val obj = jsonObject.get(it)
             if (obj == null || obj.isJsonNull) {
-                addField(elementFactory, it, null, parentElement)
+                addField(factory, it, null, parentElement)
             } else if (obj.isJsonPrimitive) {
-                addField(elementFactory, it, obj as JsonPrimitive, parentElement)
+                addField(factory, it, obj as JsonPrimitive, parentElement)
             } else if (obj.isJsonObject) {
-                val className = StringUtils.toHumpFormat(it)
+                var doc: String? = null
+                val key: String
+                if (it.contains("(") && it.contains(")")) {
+                    // 兼容周卓接口文档JSON, "dataList (产线数据)":[]
+                    val index = it.indexOf("(")
+                    doc = it.substring(index + 1, it.length - 1)
+                    key = it.substring(0, index).replace(" ", "")
+                } else {
+                    key = it
+                }
+                val className = StringUtils.toHumpFormat(key)
+
                 val suffix = mObjSuffix.text.trim()
-                addFieldForObjType(elementFactory, it, className + suffix, false, parentElement)
+                addFieldForObjType(factory, key, className + suffix, false, parentElement, doc)
 
                 val lastChild = parentElement.lastChild
-                val element = createStaticClass(elementFactory, className)
-                createJavaObjectOnJsonObject(elementFactory, obj as JsonObject, element)
+                val element = createStaticClass(factory, className, doc)
+                createJavaObjectOnJsonObject(factory, obj as JsonObject, element)
                 parentElement.addBefore(element, lastChild)
             } else if (obj.isJsonArray) {
-                val className = StringUtils.toHumpFormat(it)
+                var doc: String? = null
+                val key: String
+                if (it.contains("(") && it.contains(")")) {
+                    // 兼容周卓接口文档JSON, "dataList (产线数据)":[]
+                    val index = it.indexOf("(")
+                    doc = it.substring(index + 1, it.length - 1)
+                    key = it.substring(0, index).replace(" ", "")
+                } else {
+                    key = it
+                }
+                val className = StringUtils.toHumpFormat(key)
+
                 obj.asJsonArray.let { jsonArray ->
                     if (jsonArray.size() == 0) {
-                        addFieldForObjType(elementFactory, it, "any", true, parentElement)
+                        addFieldForObjType(factory, key, "any", true, parentElement, doc)
                         return@let
                     }
 
@@ -201,9 +225,9 @@ class JsonToJavaDialog(
 
                             if (!isCreateObjChild) {
                                 isCreateObjChild = true
-                                val element = createStaticClass(elementFactory, className)
+                                val element = createStaticClass(factory, className, doc)
                                 val lastChild = parentElement.lastChild
-                                createJavaObjectOnJsonObject(elementFactory, child as JsonObject, element)
+                                createJavaObjectOnJsonObject(factory, child as JsonObject, element)
                                 parentElement.addBefore(element, lastChild)
                             }
                         } else if (child.isJsonPrimitive) {
@@ -230,22 +254,22 @@ class JsonToJavaDialog(
                     }
 
                     if (!typeSame) {
-                        addFieldForObjType(elementFactory, it, "any", true, parentElement)
+                        addFieldForObjType(factory, key, "any", true, parentElement, doc)
                         return@let
                     }
 
                     when (type) {
                         null, "null" -> {
-                            addFieldForObjType(elementFactory, it, "any", true, parentElement)
+                            addFieldForObjType(factory, key, "any", true, parentElement, doc)
                         }
 
                         "JsonObject" -> {
                             val suffix = mObjSuffix.text.trim()
-                            addFieldForObjType(elementFactory, it, className + suffix, true, parentElement)
+                            addFieldForObjType(factory, key, className + suffix, true, parentElement, doc)
                         }
 
                         else -> {
-                            addFieldForObjType(elementFactory, it, type!!, true, parentElement)
+                            addFieldForObjType(factory, key, type!!, true, parentElement, doc)
                         }
                     }
                 }
@@ -312,21 +336,38 @@ class JsonToJavaDialog(
     }
 
     private fun addFieldForObjType(
-        elementFactory: PsiElementFactory,
+        factory: PsiElementFactory,
         key: String,
         typeName: String,
         isArray: Boolean,
-        parentElement: PsiElement
+        parentElement: PsiElement,
+        doc: String?
     ) {
-        var content = if ("any" == typeName) {
-            "private Object $key;"
+        val type = if ("any" == typeName) {
+            "Object"
         } else {
-            if (isArray) "private List<$typeName> $key;" else "private $typeName $key;"
+            if (isArray) "List<$typeName>" else typeName
+        }
+        val content = "private $type $key;\n"
+
+        val getMethod = "public $type get${StringUtils.capitalName(key)}() {\n return $key; }\n"
+        val setMethod = "public void set${StringUtils.capitalName(key)}($type $key) {\n this.$key = $key; }\n"
+
+        if (mCbCreateDoc.isSelected && !doc.isNullOrEmpty()) {
+            // 不能把doc加到element，虽然此doc文档是属于element的，因为加到element下，doc结束符号'*/'与属性之间不会换行
+            // 即使在'*/'后加换行'*/\n'也无效
+            val docElement = factory.createDocCommentFromText("/**\n* $doc\n*/", parentElement)
+            addFieldBeforeClass(parentElement, docElement)
         }
 
-        content += "\n"
-        val element = elementFactory.createFieldFromText(content, parentElement)
+        val element = factory.createFieldFromText(content, parentElement)
         addFieldBeforeClass(parentElement, element)
+
+        var method = factory.createMethodFromText(getMethod, null, LanguageLevel.JDK_11)
+        addMethodBeforeClass(parentElement, method)
+
+        method = factory.createMethodFromText(setMethod, null, LanguageLevel.JDK_11)
+        addMethodBeforeClass(parentElement, method)
     }
 
     /**
