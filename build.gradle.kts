@@ -6,7 +6,7 @@ plugins {
 
 group = "com.wanggaowan.android.dev.tools"
 // version = "1.0-SNAPSHOT"
-version = "1.3"
+version = "1.4"
 
 repositories {
     mavenCentral()
@@ -17,7 +17,7 @@ intellij {
     version.set("212.5712.43")
     type.set("IC") // Target IDE Platform
 
-    plugins.set(listOf("android"))
+    plugins.set(listOf("java","android","org.jetbrains.kotlin"))
 }
 
 tasks {

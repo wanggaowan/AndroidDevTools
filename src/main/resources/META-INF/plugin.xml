@@ -9,10 +9,18 @@
       <li>复制不同分辨率下的相同文件</li>
       <li>带目录复制文件</li>
       <li>从外部导入不同分辨率下的相同图片</li>
+      <li>json转java实体</li>
+      <li>json转kotlin实体</li>
     </ol>
   ]]></description>
 
     <change-notes><![CDATA[
+    <p>1.4</p>
+    <ul>
+      <li>增加json转java实体功能</li>
+      <li>增加json转kotlin实体功能</li>
+    </ul>
+
     <p>1.3</p>
     <ul>
       <li>从外部导入图片模块：重命名界面增加导入图片预览功能</li>
@@ -39,6 +47,8 @@
     </change-notes>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>org.jetbrains.kotlin</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup displayType="BALLOON" id="com.wanggaowan.android.dev.tools" isLogByDefault="false"/>
@@ -70,6 +80,16 @@
                 description="复制文件及文件的目录">
             <add-to-group group-id="CutCopyPasteGroup" anchor="after"
                           relative-to-action="com.wanggaowan.android.dev.tools.actions.CopyMultiSameNameFileAction"/>
+        </action>
+        <action id="com.wanggaowan.android.dev.tools.actions.format.GsonFormatAction"
+                class="com.wanggaowan.android.dev.tools.actions.format.GsonFormatAction" text="GsonFormat"
+                description="json文件转化为java实体">
+            <add-to-group group-id="GenerateGroup" anchor="last"/>
+        </action>
+        <action id="com.wanggaowan.android.dev.tools.actions.format.GsonFormatKTAction"
+                class="com.wanggaowan.android.dev.tools.actions.format.GsonFormatKTAction" text="GsonFormatKT"
+                description="json文件转化为kotlin实体">
+            <add-to-group group-id="GenerateGroup" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>
