@@ -38,6 +38,10 @@ class ImageView(image: File? = null, val isDarkThem: Boolean = false) : JPanel()
 
     override fun paint(g: Graphics) {
         super.paint(g)
+        if (!isVisible) {
+            return
+        }
+
         if (g is Graphics2D) {
             // 消除画图锯齿
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)

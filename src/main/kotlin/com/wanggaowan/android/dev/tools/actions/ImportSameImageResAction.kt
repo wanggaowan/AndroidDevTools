@@ -10,6 +10,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.wanggaowan.android.dev.tools.ui.ImportImageFolderChooser
+import com.wanggaowan.android.dev.tools.ui.RenameEntity
 import com.wanggaowan.android.dev.tools.utils.NotificationUtils
 
 
@@ -134,7 +135,7 @@ class ImportSameImageResAction : AnAction() {
 
     private fun importImages(
         project: Project, importFiles: List<VirtualFile>,
-        importToFolder: VirtualFile, renameMap: Map<String, Map<String, String>>
+        importToFolder: VirtualFile, renameMap: Map<String, List<RenameEntity>>
     ) {
         WriteCommandAction.runWriteCommandAction(project) {
             val mapFiles = mapChosenFiles(importFiles)
@@ -169,13 +170,28 @@ class ImportSameImageResAction : AnAction() {
                     ""
                 }
 
-                val map = renameMap[mapFolder]
+                val renameList = renameMap[mapFolder]
                 mapFiles[folder.name]?.let {
                     it.forEach { child ->
                         try {
-                            child.copy(null, folder, map?.get(child.name) ?: child.name)
+                            var renameEntity: RenameEntity? = null
+                            if (renameList != null) {
+                                for (rename in renameList) {
+                                    if (rename.oldName == child.name) {
+                                        renameEntity = rename
+                                        break
+                                    }
+                                }
+                            }
+
+                            if (renameEntity != null && renameEntity.existFile && renameEntity.coverExistFile) {
+                                // 删除已经存在的文件
+                                folder.findChild(renameEntity.newName)?.delete(project)
+                            }
+
+                            child.copy(project, folder, renameEntity?.newName ?: child.name)
                         } catch (e: Exception) {
-                            // 可能是导入文件以及存在
+                            // 可能是导入文件已经存在
                         }
                     }
                 }
