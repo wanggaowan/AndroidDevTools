@@ -111,6 +111,7 @@ class JsonToKotlinDialog(
     }
 
     private fun initData() {
+        mEtJsonContent.requestFocus()
         if (selectElement == null) {
             mCreateObjectName.isEnabled = true
             mCreateObjectName.requestFocus()
