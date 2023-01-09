@@ -19,6 +19,7 @@ import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiFile
 import com.intellij.ui.ColorUtil
+import com.intellij.ui.JBColor
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ArrayUtil
@@ -314,9 +315,9 @@ class ImportImageFolderChooser(
                 box2.add(existFileImageView)
 
                 val hint = JCheckBox("已存在同名文件,是否覆盖原文件？不勾选则跳过导入")
-                hint.foreground = Color.RED
+                hint.foreground = JBColor.RED
                 val renameFont = rename.font
-                hint.font = Font(null, renameFont.style, if (renameFont == null) 12 else renameFont.size - 4)
+                hint.font = Font(null, renameFont.style, if (renameFont == null) JBUI.scaleFontSize(12f) else renameFont.size - 2)
                 it2.existFile = existFile != null
                 hint.isVisible = existFile != null
                 box2.add(hint)
