@@ -16,6 +16,38 @@ import java.io.File
  * @author Created by wanggaowan on 2022/7/12 08:40
  */
 class CopyFileWithFolderAction : AnAction() {
+
+    override fun update(e: AnActionEvent) {
+        val project = e.project ?: return
+        if (!AndroidUtils.hasAndroidFacets(project)) {
+            e.presentation.isVisible = false
+            return
+        }
+
+        val virtualFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
+        if (virtualFiles.isNullOrEmpty()) {
+            e.presentation.isVisible = false
+            return
+        }
+
+
+        val parent = virtualFiles[0].parent ?: return
+        val name = parent.name
+        if (!name.startsWith("drawable") && !name.startsWith("mipmap")) {
+            e.presentation.isVisible = false
+            return
+        }
+
+        for (file in virtualFiles) {
+            if (file.isDirectory) {
+                e.presentation.isVisible = false
+                return
+            }
+        }
+
+        e.presentation.isVisible = true
+    }
+
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val basePath = project.basePath ?: return
@@ -102,33 +134,6 @@ class CopyFileWithFolderAction : AnAction() {
             }
             Toolkit.getDefaultToolkit().systemClipboard.setContents(FileTransferable(needCopyFile), null)
         }
-    }
-
-    override fun update(e: AnActionEvent) {
-        val project = e.project ?: return
-        if (!AndroidUtils.hasAndroidFacets(project)) {
-            return
-        }
-
-        val virtualFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
-        if (virtualFiles.isNullOrEmpty()) {
-            return
-        }
-
-
-        val parent = virtualFiles[0].parent ?: return
-        val name = parent.name
-        if (!name.startsWith("drawable") || !name.startsWith("mipmap")) {
-            return
-        }
-
-        for (file in virtualFiles) {
-            if (file.isDirectory) {
-                return
-            }
-        }
-
-        e.presentation.isVisible = true
     }
 
     /**

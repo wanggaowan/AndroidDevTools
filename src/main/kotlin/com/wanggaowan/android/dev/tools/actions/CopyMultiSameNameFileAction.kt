@@ -20,23 +20,27 @@ class CopyMultiSameNameFileAction : AnAction() {
     override fun update(e: AnActionEvent) {
         val project = e.project ?: return
         if (!AndroidUtils.hasAndroidFacets(project)) {
+            e.presentation.isVisible = false
             return
         }
 
         val virtualFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
         if (virtualFiles.isNullOrEmpty()) {
+            e.presentation.isVisible = false
             return
         }
 
 
         val parent = virtualFiles[0].parent ?: return
         val name = parent.name
-        if (!name.startsWith("drawable") || !name.startsWith("mipmap")) {
+        if (!name.startsWith("drawable") && !name.startsWith("mipmap")) {
+            e.presentation.isVisible = false
             return
         }
 
         for (file in virtualFiles) {
             if (file.isDirectory) {
+                e.presentation.isVisible = false
                 return
             }
         }
