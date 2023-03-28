@@ -1,12 +1,12 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "1.6.20"
-    id("org.jetbrains.intellij") version "1.5.2"
+    id("org.jetbrains.kotlin.jvm") version "1.7.20"
+    id("org.jetbrains.intellij") version "1.10.1"
 }
 
 group = "com.wanggaowan.android.dev.tools"
 // version = "1.0-SNAPSHOT"
-version = "1.5"
+version = "1.6"
 
 repositories {
     mavenCentral()
@@ -14,10 +14,10 @@ repositories {
 
 // Configure Gradle IntelliJ Plugin - read more: https://github.com/JetBrains/gradle-intellij-plugin
 intellij {
-    version.set("2021.3")
-    type.set("IU") // Target IDE Platform
+    version.set("221.6008.13.2211.9619390")
+    type.set("AI") // AndroidStudio
 
-    plugins.set(listOf("java","android","org.jetbrains.kotlin"))
+    plugins.set(listOf("java","android","Kotlin"))
 }
 
 tasks {

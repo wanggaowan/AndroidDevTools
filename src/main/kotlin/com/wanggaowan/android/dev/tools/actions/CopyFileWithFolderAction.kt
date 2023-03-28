@@ -6,6 +6,7 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
+import org.jetbrains.android.util.AndroidUtils
 import java.awt.Toolkit
 import java.io.File
 
@@ -104,20 +105,30 @@ class CopyFileWithFolderAction : AnAction() {
     }
 
     override fun update(e: AnActionEvent) {
+        val project = e.project ?: return
+        if (!AndroidUtils.hasAndroidFacets(project)) {
+            return
+        }
+
         val virtualFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
         if (virtualFiles.isNullOrEmpty()) {
-            e.presentation.isVisible = false
+            return
+        }
+
+
+        val parent = virtualFiles[0].parent ?: return
+        val name = parent.name
+        if (!name.startsWith("drawable") || !name.startsWith("mipmap")) {
             return
         }
 
         for (file in virtualFiles) {
-            if (!file.isDirectory) {
-                e.presentation.isVisible = true
+            if (file.isDirectory) {
                 return
             }
         }
 
-        e.presentation.isVisible = false
+        e.presentation.isVisible = true
     }
 
     /**

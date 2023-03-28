@@ -6,6 +6,7 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
+import org.jetbrains.android.util.AndroidUtils
 import java.awt.Toolkit
 import java.io.File
 
@@ -15,6 +16,34 @@ import java.io.File
  * @author Created by wanggaowan on 2022/7/11 13:47
  */
 class CopyMultiSameNameFileAction : AnAction() {
+
+    override fun update(e: AnActionEvent) {
+        val project = e.project ?: return
+        if (!AndroidUtils.hasAndroidFacets(project)) {
+            return
+        }
+
+        val virtualFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
+        if (virtualFiles.isNullOrEmpty()) {
+            return
+        }
+
+
+        val parent = virtualFiles[0].parent ?: return
+        val name = parent.name
+        if (!name.startsWith("drawable") || !name.startsWith("mipmap")) {
+            return
+        }
+
+        for (file in virtualFiles) {
+            if (file.isDirectory) {
+                return
+            }
+        }
+
+        e.presentation.isVisible = true
+    }
+
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val basePath = project.basePath ?: return
@@ -98,23 +127,6 @@ class CopyMultiSameNameFileAction : AnAction() {
             }
             Toolkit.getDefaultToolkit().systemClipboard.setContents(FileTransferable(needCopyFile), null)
         }
-    }
-
-    override fun update(e: AnActionEvent) {
-        val virtualFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
-        if (virtualFiles.isNullOrEmpty()) {
-            e.presentation.isVisible = false
-            return
-        }
-
-        for (file in virtualFiles) {
-            if (!file.isDirectory) {
-                e.presentation.isVisible = true
-                return
-            }
-        }
-
-        e.presentation.isVisible = false
     }
 
     /**

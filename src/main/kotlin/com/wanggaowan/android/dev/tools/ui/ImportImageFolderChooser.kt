@@ -24,6 +24,7 @@ import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ArrayUtil
 import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
 import com.wanggaowan.android.dev.tools.listener.SimpleComponentListener
 import com.wanggaowan.android.dev.tools.utils.Toast
 import java.awt.*
@@ -261,7 +262,7 @@ class ImportImageFolderChooser(
                 mRenameFileMap[parentName] = list
             }
 
-            list.add(RenameEntity(it.name,it.name))
+            list.add(RenameEntity(it.name, it.name))
         }
 
         var totalHeight = 0
@@ -270,9 +271,8 @@ class ImportImageFolderChooser(
             val type = JLabel(it.key + "：")
             type.preferredSize = JBUI.size(600, 40)
             type.border = BorderFactory.createEmptyBorder(0, 5, 5, 5)
-            val font = type.font
-            val fontSize = if (font == null) 16 else font.size + 2
-            type.font = Font(null, Font.BOLD, fontSize)
+            val fontSize = (UIUtil.getFontSize(UIUtil.FontSize.NORMAL) + 2).toInt()
+            type.font = Font(type.font.name, Font.BOLD, fontSize)
             rootPane.add(type)
             totalHeight += 40
 
@@ -316,8 +316,7 @@ class ImportImageFolderChooser(
 
                 val hint = JCheckBox("已存在同名文件,是否覆盖原文件？不勾选则跳过导入")
                 hint.foreground = JBColor.RED
-                val renameFont = rename.font
-                hint.font = Font(null, renameFont.style, if (renameFont == null) JBUI.scaleFontSize(12f) else renameFont.size - 2)
+                hint.font = UIUtil.getFont(UIUtil.FontSize.MINI, rename.font)
                 it2.existFile = existFile != null
                 hint.isVisible = existFile != null
                 box2.add(hint)
@@ -554,9 +553,11 @@ class ImportImageFolderChooser(
                 is PsiFile -> {
                     obj
                 }
+
                 is PsiFileNode -> {
                     obj.value
                 }
+
                 else -> {
                     null
                 }
@@ -682,5 +683,5 @@ data class RenameEntity(
     /**
      * 如果存在同名文件，是否覆盖同名文件
      */
-    var coverExistFile:Boolean = false
+    var coverExistFile: Boolean = false
 )
