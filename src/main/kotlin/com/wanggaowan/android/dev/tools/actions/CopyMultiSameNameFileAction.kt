@@ -1,5 +1,6 @@
 package com.wanggaowan.android.dev.tools.actions
 
+import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
@@ -16,6 +17,10 @@ import java.io.File
  * @author Created by wanggaowan on 2022/7/11 13:47
  */
 class CopyMultiSameNameFileAction : AnAction() {
+
+    override fun getActionUpdateThread(): ActionUpdateThread {
+        return ActionUpdateThread.BGT
+    }
 
     override fun update(e: AnActionEvent) {
         val project = e.project ?: return
