@@ -1,4 +1,4 @@
-package com.wanggaowan.android.dev.tools.actions
+package com.wanggaowan.android.dev.tools.actions.image
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
@@ -7,6 +7,7 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
+import com.wanggaowan.android.dev.tools.actions.FileTransferable
 import org.jetbrains.android.util.AndroidUtils
 import java.awt.Toolkit
 import java.io.File

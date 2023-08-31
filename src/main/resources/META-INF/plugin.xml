@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.wanggaowan.android.dev.tools</id>
     <name>AndroidDevTools</name>
-    <vendor email="wanggaowan@163.com" url="https://github.com/wanggaowan/AndroidDevTools"/>
+    <vendor email="wanggaowan@163.com" url="https://github.com/wanggaowan/AndroidDevTools" />
 
     <description><![CDATA[
     <h2>提供Android开发所需工具</h2>
@@ -15,6 +15,18 @@
   ]]></description>
 
     <change-notes><![CDATA[
+    <p>1.7</p>
+    <ul>
+      <li>图片多分辨率操作增加到编辑器tab页右键操作中</li>
+    </ul>
+
+    <p>1.6</p>
+    <ul>
+      <li>调整图片导入提示文本字体,通过UIUtil获取系统设置值</li>
+      <li>全局Action功能是否启用逻辑调整</li>
+      <li>最低支持版本调整为223(2022.3.1)</li>
+    </ul>
+
     <p>1.5</p>
     <ul>
       <li>修复从外部初次导入图片不重名时，如果存在同名文件不提示Bug</li>
@@ -59,45 +71,57 @@
     <depends>org.jetbrains.android</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <notificationGroup displayType="BALLOON" id="com.wanggaowan.android.dev.tools" isLogByDefault="false"/>
+        <notificationGroup displayType="BALLOON" id="com.wanggaowan.android.dev.tools"
+            isLogByDefault="false" />
     </extensions>
 
     <projectListeners>
         <listener class="com.wanggaowan.android.dev.tools.listener.MyProjectManagerListener"
-                  topic="com.intellij.openapi.project.ProjectManagerListener"/>
+            topic="com.intellij.openapi.project.ProjectManagerListener" />
     </projectListeners>
 
     <actions>
-        <group id="Android Dev Tools"
-               text="Android Dev Tools"
-               popup="true">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
-            <action id="com.wanggaowan.android.dev.tools.actions.ImportSameImageResAction"
-                    class="com.wanggaowan.android.dev.tools.actions.ImportSameImageResAction"
-                    text="导入不同分辨率下的相同文件">
-            </action>
+        <group id="AndroidDevTools" text="Android Dev Tools" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last" />
+            <action id="AndroidDevToolsImportSameImageResAction"
+                class="com.wanggaowan.android.dev.tools.actions.image.ImportSameImageResAction"
+                text="导入不同分辨率下的相同文件" />
         </group>
 
-        <action id="com.wanggaowan.android.dev.tools.actions.CopyMultiSameNameFileAction"
-                class="com.wanggaowan.android.dev.tools.actions.CopyMultiSameNameFileAction" text="复制不同分辨率下的相同图片"
-                description="复制不同的分辨率下同名称的文件">
-            <add-to-group group-id="CutCopyPasteGroup" anchor="before" relative-to-action="$Paste"/>
-        </action>
-        <action id="com.wanggaowan.android.dev.tools.actions.CopyFileWithFolderAction"
-                class="com.wanggaowan.android.dev.tools.actions.CopyFileWithFolderAction" text="带目录复制文件"
-                description="复制文件及文件的目录">
-            <add-to-group group-id="CutCopyPasteGroup" anchor="after"
-                          relative-to-action="com.wanggaowan.android.dev.tools.actions.CopyMultiSameNameFileAction"/>
-        </action>
+        <action id="AndroidDevToolsCopyMultiSameNameFileAction"
+            class="com.wanggaowan.android.dev.tools.actions.image.CopyMultiSameNameFileAction"
+            text="复制不同分辨率下的相同图片" description="复制不同的分辨率下同名称的文件" />
+        <action id="AndroidDevToolsCopyFileWithFolderAction"
+            class="com.wanggaowan.android.dev.tools.actions.image.CopyFileWithFolderAction"
+            text="带目录复制文件" description="复制文件及文件的目录" />
+
+        <group id="AndroidDevToolsImageActionGroup"
+            class="com.wanggaowan.android.dev.tools.actions.image.ImageActionGroup">
+            <separator />
+            <reference id="AndroidDevToolsCopyMultiSameNameFileAction" />
+            <reference id="AndroidDevToolsCopyFileWithFolderAction" />
+            <separator />
+            <add-to-group group-id="CutCopyPasteGroup" anchor="last" />
+        </group>
+
+        <group id="AndroidDevToolsImageOnEditorTabActionGroup"
+            class="com.wanggaowan.android.dev.tools.actions.image.ImageOnEditorTabActionGroup">
+            <separator />
+            <reference id="AndroidDevToolsCopyMultiSameNameFileAction" />
+            <separator />
+            <add-to-group group-id="EditorTabPopupMenu" anchor="before"
+                relative-to-action="SplitVertically" />
+        </group>
+
         <action id="com.wanggaowan.android.dev.tools.actions.format.GsonFormatAction"
-                class="com.wanggaowan.android.dev.tools.actions.format.GsonFormatAction" text="GsonFormat"
-                description="json文件转化为java实体">
-            <add-to-group group-id="GenerateGroup" anchor="last"/>
+            class="com.wanggaowan.android.dev.tools.actions.format.GsonFormatAction"
+            text="GsonFormat" description="json文件转化为java实体">
+            <add-to-group group-id="GenerateGroup" anchor="last" />
         </action>
         <action id="com.wanggaowan.android.dev.tools.actions.format.GsonFormatKTAction"
-                class="com.wanggaowan.android.dev.tools.actions.format.GsonFormatKTAction" text="GsonFormatKT"
-                description="json文件转化为kotlin实体">
-            <add-to-group group-id="GenerateGroup" anchor="last"/>
+            class="com.wanggaowan.android.dev.tools.actions.format.GsonFormatKTAction"
+            text="GsonFormatKT" description="json文件转化为kotlin实体">
+            <add-to-group group-id="GenerateGroup" anchor="last" />
         </action>
     </actions>
 </idea-plugin>

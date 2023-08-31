@@ -6,7 +6,7 @@ plugins {
 
 group = "com.wanggaowan.android.dev.tools"
 // version = "1.0-SNAPSHOT"
-version = "1.6"
+version = "1.7"
 
 repositories {
     mavenCentral()
@@ -39,7 +39,7 @@ tasks {
     }
 
     patchPluginXml {
-        sinceBuild.set("222")
+        sinceBuild.set("223")
         untilBuild.set("10000.*")
     }
 

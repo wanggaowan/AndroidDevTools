@@ -1,4 +1,4 @@
-package com.wanggaowan.android.dev.tools.actions
+package com.wanggaowan.android.dev.tools.actions.image
 
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
