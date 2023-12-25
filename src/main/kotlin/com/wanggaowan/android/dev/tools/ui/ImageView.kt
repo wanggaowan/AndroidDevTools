@@ -1,5 +1,7 @@
 package com.wanggaowan.android.dev.tools.ui
 
+import com.intellij.ui.Gray
+import com.intellij.ui.JBColor
 import java.awt.*
 import java.io.File
 import java.io.FileInputStream
@@ -12,7 +14,7 @@ import javax.swing.JPanel
  *
  * @author Created by wanggaowan on 2022/6/20 08:44
  */
-class ImageView(image: File? = null, val isDarkThem: Boolean = false) : JPanel() {
+class ImageView(image: File? = null) : JPanel() {
 
     private var image: Image? = null
     private var imgWidth = 0
@@ -98,11 +100,11 @@ class ImageView(image: File? = null, val isDarkThem: Boolean = false) : JPanel()
         var color2: Color
         for (row in 0 until rows) {
             if (row % 2 == 0) {
-                color1 = if (isDarkThem) Color(57, 58, 59) else Color(205, 205, 205)
-                color2 = if (isDarkThem) Color(65, 66, 67) else Color(240, 240, 240)
+                color1 = JBColor(Gray._205, Color(57, 58, 59))
+                color2 = JBColor(Gray._240, Color(65, 66, 67))
             } else {
-                color2 = if (isDarkThem) Color(57, 58, 59) else Color(205, 205, 205)
-                color1 = if (isDarkThem) Color(65, 66, 67) else Color(240, 240, 240)
+                color2 = JBColor(Gray._205, Color(57, 58, 59))
+                color1 = JBColor(Gray._240, Color(65, 66, 67))
             }
 
             var startOffset = mBorderInsets.left

@@ -37,90 +37,6 @@ import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.TreeSelectionModel
 
-
-private object Config {
-    var isDarkTheme = false
-
-    private val LINE_COLOR = Color(209, 209, 209)
-    private val LINE_COLOR_DARK = Color(50, 50, 50)
-
-    private val MOUSE_ENTER_COLOR = Color(223, 223, 223)
-    private val MOUSE_ENTER_COLOR_DARK = Color(76, 80, 82)
-
-    // 用于透明Icon使用
-    private val MOUSE_ENTER_COLOR2 = Color(191, 197, 200)
-    private val MOUSE_ENTER_COLOR_DARK2 = Color(98, 106, 110)
-
-    private val MOUSE_PRESS_COLOR = Color(207, 207, 207)
-    private val MOUSE_PRESS_COLOR_DARK = Color(92, 97, 100)
-
-    private val INPUT_FOCUS_COLOR = Color(71, 135, 201)
-
-    private val INPUT_UN_FOCUS_COLOR = Color(196, 196, 196)
-    private val INPUT_UN_FOCUS_COLOR_DARK = Color(100, 100, 100)
-
-    private val IMAGE_TITLE_BG_COLOR = Color(252, 252, 252)
-    private val IMAGE_TITLE_BG_COLOR_DARK = Color(49, 52, 53)
-
-    val TRANSPARENT = Color(0, 0, 0, 0)
-
-    fun getLineColor(): Color {
-        if (isDarkTheme) {
-            return LINE_COLOR_DARK
-        }
-
-        return LINE_COLOR
-    }
-
-    fun getMouseEnterColor(): Color {
-        if (isDarkTheme) {
-            return MOUSE_ENTER_COLOR_DARK
-        }
-
-        return MOUSE_ENTER_COLOR
-    }
-
-    fun getMouseEnterColor2(): Color {
-        if (isDarkTheme) {
-            return MOUSE_ENTER_COLOR_DARK2
-        }
-
-        return MOUSE_ENTER_COLOR2
-    }
-
-    fun getMousePressColor(): Color {
-        if (isDarkTheme) {
-            return MOUSE_PRESS_COLOR_DARK
-        }
-
-        return MOUSE_PRESS_COLOR
-    }
-
-    fun getInputFocusColor(): Color {
-        if (isDarkTheme) {
-            return INPUT_FOCUS_COLOR
-        }
-
-        return INPUT_FOCUS_COLOR
-    }
-
-    fun getInputUnFocusColor(): Color {
-        if (isDarkTheme) {
-            return INPUT_UN_FOCUS_COLOR_DARK
-        }
-
-        return INPUT_UN_FOCUS_COLOR
-    }
-
-    fun getImageTitleBgColor(): Color {
-        if (isDarkTheme) {
-            return IMAGE_TITLE_BG_COLOR_DARK
-        }
-
-        return IMAGE_TITLE_BG_COLOR
-    }
-}
-
 /**
  * 导入图片资源后选择导入的目标文件夹弹窗，兼带重命名导入文件名称功能
  *
@@ -142,6 +58,7 @@ class ImportImageFolderChooser(
     private lateinit var myTree: Tree
     private lateinit var mBtnOk: JButton
     private lateinit var mJChosenFolder: JLabel
+    private lateinit var mJRenamePanel: JPanel
 
     /**
      * 切换文件选择/重命名面板的父面板
@@ -164,9 +81,14 @@ class ImportImageFolderChooser(
      */
     private var mOkActionListener: (() -> Unit)? = null
 
+    /**
+     * 确定按钮点击监听
+     */
+    private var mCancelActionListener: (() -> Unit)? = null
+
+    private var mDoOk = false
+
     init {
-        val isDarkTheme = ColorUtil.isDark(background)
-        Config.isDarkTheme = isDarkTheme
         mSelectedFolder = initialFile
 
         isAlwaysOnTop = true
@@ -192,14 +114,17 @@ class ImportImageFolderChooser(
         }
     }
 
-    override fun setVisible(b: Boolean) {
-        if (b) {
+    override fun setVisible(visible: Boolean) {
+        if (visible) {
             val window = WindowManager.getInstance().suggestParentWindow(project)
             window?.let {
                 location = Point(it.x + (it.width - this.width) / 2, it.y + (it.height - this.height) / 2)
             }
         }
-        super.setVisible(b)
+        super.setVisible(visible)
+        if (!visible && !mDoOk) {
+            mCancelActionListener?.invoke()
+        }
     }
 
     /**
@@ -246,8 +171,6 @@ class ImportImageFolderChooser(
      */
     private fun createRenameFilePanel(files: List<VirtualFile>?): JComponent {
         mRenameFileMap.clear()
-        val rootPane = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0))
-
         files?.forEach {
             val parentName = if (it.path.contains("drawable")) "Drawable"
             else if (it.path.contains("mipmap")) {
@@ -262,69 +185,80 @@ class ImportImageFolderChooser(
                 mRenameFileMap[parentName] = list
             }
 
-            list.add(RenameEntity(it.name, it.name))
+            list.add(RenameEntity(it.name, it, it.name))
         }
 
-        var totalHeight = 0
-        val isDarkTheme = ColorUtil.isDark(background)
+        mJRenamePanel = JPanel(GridBagLayout())
+        initRenamePanel()
+        val scrollPane = ScrollPaneFactory.createScrollPane(mJRenamePanel)
+        scrollPane.preferredSize = JBUI.size(600, 300)
+        scrollPane.border = LineBorder(UIColor.LINE_COLOR, 0, 0, 1, 0)
+        return scrollPane
+    }
+
+    private fun initRenamePanel() {
+        mJRenamePanel.removeAll()
+        var depth = 0
+        val c = GridBagConstraints()
+        c.fill = GridBagConstraints.HORIZONTAL
+        c.weightx = 1.0
+
         mRenameFileMap.forEach {
             val type = JLabel(it.key + "：")
-            type.preferredSize = JBUI.size(600, 40)
-            type.border = BorderFactory.createEmptyBorder(0, 5, 5, 5)
+            type.border = BorderFactory.createEmptyBorder(if (depth > 0) 10 else 0, 5, 5, 5)
             val fontSize = (UIUtil.getFontSize(UIUtil.FontSize.NORMAL) + 2).toInt()
             type.font = Font(type.font.name, Font.BOLD, fontSize)
-            rootPane.add(type)
-            totalHeight += 40
+            c.gridy = depth++
+            mJRenamePanel.add(type, c)
+
+            val cc = GridBagConstraints()
+            cc.fill = GridBagConstraints.HORIZONTAL
+            cc.weightx = 1.0
 
             it.value.forEach { it2 ->
-                val panel = JPanel(BorderLayout())
+                val panel = JPanel(GridBagLayout())
                 panel.border = BorderFactory.createEmptyBorder(0, 5, 5, 5)
-                totalHeight += 40
+                c.gridy = depth++
+                mJRenamePanel.add(panel, c)
 
-                val titleBox = Box.createHorizontalBox()
-                val imageFile = getFile(files, it.key == "Drawable", it2.oldName)
-                if (imageFile != null) {
-                    val imageView = ImageView(imageFile, isDarkTheme)
-                    imageView.preferredSize = JBUI.size(35)
-                    imageView.border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
-                    imageView.maximumSize = JBUI.size(35)
-                    titleBox.add(imageView)
-                }
+                val box = Box.createHorizontalBox()
+                cc.gridy = 0
+                panel.add(box, cc)
 
-                val title = JLabel(it2.oldName + "：")
-                title.preferredSize = JBUI.size(200, 35)
-                titleBox.add(title)
-                panel.add(titleBox, BorderLayout.WEST)
+                val imageView = ImageView(File(it2.oldFile.path))
+                imageView.preferredSize = JBUI.size(34)
+                imageView.maximumSize = JBUI.size(34)
+                imageView.border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
+                box.add(imageView)
 
-                val box = Box.createVerticalBox()
-                panel.add(box, BorderLayout.CENTER)
-
-                val rename = JTextField(it2.newName)
-                rename.preferredSize = JBUI.size(350, 35)
+                val rename = ExtensionTextField(it2.newName, placeHolder = it2.oldName)
+                rename.minimumSize = JBUI.size(400, 34)
                 box.add(rename)
 
-
                 val box2 = Box.createHorizontalBox()
+                cc.gridy = 1
+                box2.border = BorderFactory.createEmptyBorder(2, 0, 2, 0)
+                panel.add(box2, cc)
 
-                val existFile = isImageExist(it.key == "Drawable", it2.newName)
-                val existFileImageView = ImageView(if (existFile != null) File(existFile.path) else null, isDarkTheme)
-                existFileImageView.preferredSize = JBUI.size(25)
-                existFileImageView.border = BorderFactory.createEmptyBorder(2, 0, 2, 5)
+                val (existFile, isInMap) = isImageExist(it.key, it2)
+                val existFileImageView = ImageView(if (existFile != null) File(existFile.path) else null)
+                existFileImageView.preferredSize = JBUI.size(34, 16)
+                existFileImageView.minimumSize = JBUI.size(34, 16)
+                existFileImageView.maximumSize = JBUI.size(34, 16)
+                existFileImageView.border = BorderFactory.createEmptyBorder(0, 9, 0, 9)
                 existFileImageView.isVisible = existFile != null
-                existFileImageView.maximumSize = JBUI.size(25)
                 box2.add(existFileImageView)
 
-                val hint = JCheckBox("已存在同名文件,是否覆盖原文件？不勾选则跳过导入")
+                val hintStr =
+                    if (isInMap) "导入的文件存在相同文件，勾选则导入最后一个同名文件，否则导入第一个同名文件" else "已存在同名文件,是否覆盖原文件？不勾选则跳过导入"
+                val hint = JCheckBox(hintStr)
                 hint.foreground = JBColor.RED
                 hint.font = UIUtil.getFont(UIUtil.FontSize.MINI, rename.font)
                 it2.existFile = existFile != null
                 hint.isVisible = existFile != null
+                hint.minimumSize = JBUI.size(400, 22)
                 box2.add(hint)
-
                 box2.add(Box.createHorizontalGlue())
-                box.add(box2)
-
-                rootPane.add(panel)
 
                 hint.addChangeListener {
                     it2.coverExistFile = hint.isSelected
@@ -334,96 +268,76 @@ class ImportImageFolderChooser(
                 rename.document.addDocumentListener(object : DocumentListener {
                     override fun insertUpdate(p0: DocumentEvent?) {
                         val str = rename.text.trim()
-                        it2.newName = str
-                        val existFile2 = isImageExist(it.key == "Drawable", str)
-                        it2.existFile = existFile2 != null
-                        hint.isVisible = existFile2 != null
-                        if (existFile2 != null) {
-                            existFileImageView.isVisible = true
-                            existFileImageView.setImage(File(existFile2.path))
-                        } else {
-                            existFileImageView.isVisible = false
-                        }
+                        it2.newName = str.ifEmpty { it2.oldName }
+                        refreshRenamePanel()
                     }
 
                     override fun removeUpdate(p0: DocumentEvent?) {
                         val str = rename.text.trim()
-                        it2.newName = str
-                        val existFile2 = isImageExist(it.key == "Drawable", str)
-                        it2.existFile = existFile2 != null
-                        hint.isVisible = existFile2 != null
-                        if (existFile2 != null) {
-                            existFileImageView.isVisible = true
-                            existFileImageView.setImage(File(existFile2.path))
-                        } else {
-                            existFileImageView.isVisible = false
-                        }
+                        it2.newName = str.ifEmpty { it2.oldName }
+                        refreshRenamePanel()
                     }
 
                     override fun changedUpdate(p0: DocumentEvent?) {
                         val str = rename.text.trim()
-                        it2.newName = str
-                        val existFile2 = isImageExist(it.key == "Drawable", str)
-                        it2.existFile = existFile2 != null
-                        hint.isVisible = existFile2 != null
-                        if (existFile2 != null) {
-                            existFileImageView.isVisible = true
-                            existFileImageView.setImage(File(existFile2.path))
-                        } else {
-                            existFileImageView.isVisible = false
-                        }
+                        it2.newName = str.ifEmpty { it2.oldName }
+                        refreshRenamePanel()
                     }
                 })
             }
         }
 
-        rootPane.addComponentListener(object : SimpleComponentListener() {
-            override fun componentResized(p0: ComponentEvent?) {
-                val width = rootPane.width
-                for (component in rootPane.components) {
-                    if (component is JPanel) {
-                        for (component2 in component.components) {
-                            if (component2 is JLabel) {
-                                component2.preferredSize = Dimension((width * 0.4).toInt(), JBUI.scale(35))
-                            } else if (component2 is Box) {
-                                val child = component2.getComponent(0)
-                                if (child is JTextField) {
-                                    child.preferredSize = Dimension(width - (width * 0.4).toInt() - 10, JBUI.scale(35))
-                                }
-                            }
-                        }
-                    }
-                }
-                rootPane.updateUI()
-            }
-        })
-
-        rootPane.preferredSize = JBUI.size(600, totalHeight)
-
-        val scrollPane = ScrollPaneFactory.createScrollPane(rootPane)
-        scrollPane.border = LineBorder(Config.getLineColor(), 0, 0, 1, 0)
-        scrollPane.preferredSize = JBUI.size(600, 300)
-        return scrollPane
+        val placeHolder = JLabel()
+        c.weighty = 1.0
+        c.gridy = depth++
+        mJRenamePanel.add(placeHolder, c)
     }
 
-    private fun getFile(files: List<VirtualFile>?, isDrawable: Boolean, name: String): File? {
-        if (files.isNullOrEmpty()) {
-            return null
-        }
-
-        for (file in files) {
-            if (isDrawable && file.path.contains("drawable")) {
-                if (file.name == name) {
-                    return File(file.path)
+    private fun refreshRenamePanel() {
+        var isDrawable = false
+        var index = 0
+        for (component in mJRenamePanel.components) {
+            if (component is JLabel) { // 分类标题
+                val value = component.text.trim() == "Drawable："
+                if (value != isDrawable) {
+                    index = 0
                 }
-            } else if (!isDrawable && file.path.contains("mipmap")) {
-                if (file.name == name) {
-                    return File(file.path)
+                isDrawable = value
+            } else if (component is JPanel) {
+                val hintRoot = component.getComponent(1) as Box?
+                val imageView = hintRoot?.getComponent(0) as? ImageView
+                val checkBox = hintRoot?.getComponent(1) as? JCheckBox
+                val key = if (isDrawable) "Drawable" else "Mipmap"
+                val values = mRenameFileMap[key]
+                if (values != null && index < values.size) {
+                    values[index].also { entity ->
+                        refreshHintVisible(key, entity, checkBox, imageView)
+                    }
                 }
+                index++
             }
         }
+    }
 
-        return null
+    private fun refreshHintVisible(
+        groupKey: String, entity: RenameEntity, hint: JCheckBox?, imageView: ImageView?
+    ) {
+        val (existFile2, isInMap) = isImageExist(groupKey, entity)
+        entity.existFile = existFile2 != null
+        val hintStr =
+            if (isInMap) "导入的文件存在相同文件，勾选则导入最后一个同名文件，否则导入第一个同名文件" else "已存在同名文件,是否覆盖原文件？不勾选则跳过导入"
+        hint?.text = hintStr
+        val preVisible = hint?.isVisible
+        val visible = existFile2 != null
+        if (preVisible != visible) {
+            hint?.isVisible = visible
+            if (existFile2 != null) {
+                imageView?.isVisible = true
+                imageView?.setImage(File(existFile2.path))
+            } else {
+                imageView?.isVisible = false
+            }
+        }
     }
 
     /**
@@ -480,6 +394,7 @@ class ImportImageFolderChooser(
             Toast.show(rootPane, MessageType.ERROR, "请选择文件夹")
             return
         }
+        mDoOk = true
         isVisible = false
         mOkActionListener?.invoke()
     }
@@ -514,6 +429,13 @@ class ImportImageFolderChooser(
      */
     fun setOkActionListener(listener: (() -> Unit)?) {
         mOkActionListener = listener
+    }
+
+    /**
+     * 设置取消按钮点击监听
+     */
+    fun setCancelActionListener(listener: (() -> Unit)?) {
+        mCancelActionListener = listener
     }
 
     private fun handleSelectionChanged() {
@@ -577,78 +499,89 @@ class ImportImageFolderChooser(
     /**
      * 判断指定图片是否已存在,存在则返回同名文件
      */
-    private fun isImageExist(isDrawable: Boolean, fileName: String): VirtualFile? {
-        val rootDir = mSelectedFolder?.path ?: return null
+    private fun isImageExist(groupKey: String, entity: RenameEntity): Pair<VirtualFile?, Boolean> {
+        val rootDir = mSelectedFolder?.path ?: return Pair(null, false)
 
         var selectFile: VirtualFile?
-        if (isDrawable) {
+        val fileName = entity.newName
+        if (groupKey == "Drawable") {
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xhdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xxhdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-hdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-mdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xxxhdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-nodpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
         } else {
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-xhdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-xxhdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-hdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-mdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-xxxhdpi/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
 
             selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap/$fileName")
             if (selectFile != null) {
-                return selectFile
+                return Pair(selectFile, false)
             }
         }
 
-        return null
+        val group = mRenameFileMap[groupKey]
+        if (group != null) {
+            for (e in group) {
+                if (e != entity && entity.newName == e.newName) {
+                    return Pair(e.oldFile, true)
+                }
+            }
+        }
+
+
+        return Pair(null, false)
     }
 
     companion object {
@@ -672,6 +605,10 @@ data class RenameEntity(
      * 导入的原文件名称
      */
     var oldName: String,
+    /**
+     * 导入的原文件名称
+     */
+    var oldFile: VirtualFile,
     /**
      * 重命名的名称
      */

@@ -6,7 +6,7 @@ plugins {
 
 group = "com.wanggaowan.android.dev.tools"
 // version = "1.0-SNAPSHOT"
-version = "1.7"
+version = "1.8"
 
 repositories {
     mavenCentral()
@@ -20,9 +20,9 @@ intellij {
     // version.set("223.8836.35.2231.10406996")
     type.set("AI") // AndroidStudio
     // 配置本地已下载IDE路径，具体配置文档查看：https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html#configuration-intellij-extension
-    localPath.set("/Users/wgw/Documents/project/IdeaProjects/dev_ide/android studio/223.8836.35.2231.10406996/Android Studio.app/Contents")
+    localPath.set("/Users/wgw/Documents/develop/project/ide plugin/test ide/Android Studio.app/Contents")
 
-    plugins.set(listOf("java","android","Kotlin"))
+    plugins.set(listOf("java","org.jetbrains.android","Kotlin"))
 
     // 是否开启增量构建
     instrumentCode.set(true)

@@ -6,9 +6,9 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.openapi.vfs.VirtualFileManager
 import com.wanggaowan.android.dev.tools.actions.FileTransferable
-import org.jetbrains.android.util.AndroidUtils
+import com.wanggaowan.android.dev.tools.utils.TempFileUtils
+import com.wanggaowan.android.dev.tools.utils.ex.isAndroidProject
 import java.awt.Toolkit
 import java.io.File
 
@@ -25,7 +25,7 @@ class CopyFileWithFolderAction : AnAction() {
 
     override fun update(e: AnActionEvent) {
         val project = e.project ?: return
-        if (!AndroidUtils.hasAndroidFacets(project)) {
+        if (!project.isAndroidProject) {
             e.presentation.isVisible = false
             return
         }
@@ -56,26 +56,8 @@ class CopyFileWithFolderAction : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val basePath = project.basePath ?: return
-        val projectRootFolder = VirtualFileManager.getInstance().findFileByUrl("file://${basePath}") ?: return
         WriteCommandAction.runWriteCommandAction(project) {
-            var ideaFolder = projectRootFolder.findChild(".idea")
-            if (ideaFolder == null) {
-                try {
-                    ideaFolder = projectRootFolder.createChildDirectory(null, ".idea")
-                } catch (e: Exception) {
-                    return@runWriteCommandAction
-                }
-            }
-            var copyCacheFolder = ideaFolder.findChild("copyCache")
-            if (copyCacheFolder == null) {
-                try {
-                    copyCacheFolder = ideaFolder.createChildDirectory(null, "copyCache")
-                } catch (e: Exception) {
-                    return@runWriteCommandAction
-                }
-            }
-
+            val copyCacheFolder = TempFileUtils.getCopyCacheFolder(project)?:return@runWriteCommandAction
             copyCacheFolder.children?.forEach { it.delete(null) }
             val selectFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY) ?: return@runWriteCommandAction
             if (selectFiles.isEmpty()) {
