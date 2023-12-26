@@ -36,8 +36,8 @@ val Project.isAndroidProject: Boolean
         return AndroidUtils.getInstance().isAndroidProject(this)
     }
 
-/// 图片资源根目录
-val Project.imageRootDir: VirtualFile?
+/// 资源根目录
+val Project.resRootDir: VirtualFile?
     get() {
         return VirtualFileManager.getInstance()
             .findFileByUrl("file://${basePath}/app/src/main/res")

@@ -511,7 +511,7 @@ internal object KTGsonFormatConfig {
     }
 
     fun setApplyAllProject(isApplyAll: Boolean) {
-        PropertiesSerializeUtils.setBoolean(APPLY_ALL_PROJECT, isApplyAll)
+        PropertiesSerializeUtils.putBoolean(APPLY_ALL_PROJECT, isApplyAll)
     }
 
     fun isJsonValueToDoc(project: Project): Boolean {
@@ -524,9 +524,9 @@ internal object KTGsonFormatConfig {
 
     fun setJsonValueToDoc(project: Project, value: Boolean) {
         if (isApplyAllProject()) {
-            PropertiesSerializeUtils.setBoolean(JSON_VALUE_TO_DOC, value)
+            PropertiesSerializeUtils.putBoolean(JSON_VALUE_TO_DOC, value)
         } else {
-            PropertiesSerializeUtils.setBoolean(project, JSON_VALUE_TO_DOC, value)
+            PropertiesSerializeUtils.putBoolean(project, JSON_VALUE_TO_DOC, value)
         }
     }
 
@@ -540,9 +540,9 @@ internal object KTGsonFormatConfig {
 
     fun setCreateDataClass(project: Project, value: Boolean) {
         if (isApplyAllProject()) {
-            PropertiesSerializeUtils.setBoolean(CREATE_DATA_CLASS, value)
+            PropertiesSerializeUtils.putBoolean(CREATE_DATA_CLASS, value)
         } else {
-            PropertiesSerializeUtils.setBoolean(project, CREATE_DATA_CLASS, value)
+            PropertiesSerializeUtils.putBoolean(project, CREATE_DATA_CLASS, value)
         }
     }
 
@@ -556,9 +556,9 @@ internal object KTGsonFormatConfig {
 
     fun setCreateNestClass(project: Project, value: Boolean) {
         if (isApplyAllProject()) {
-            PropertiesSerializeUtils.setBoolean(CREATE_NESTED_CLASS, value)
+            PropertiesSerializeUtils.putBoolean(CREATE_NESTED_CLASS, value)
         } else {
-            PropertiesSerializeUtils.setBoolean(project, CREATE_NESTED_CLASS, value)
+            PropertiesSerializeUtils.putBoolean(project, CREATE_NESTED_CLASS, value)
         }
     }
 }

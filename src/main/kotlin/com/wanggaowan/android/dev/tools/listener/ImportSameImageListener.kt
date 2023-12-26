@@ -15,7 +15,7 @@ import com.intellij.psi.PsiFileSystemItem
 import com.intellij.refactoring.move.MoveCallback
 import com.intellij.refactoring.move.MoveHandlerDelegate
 import com.wanggaowan.android.dev.tools.actions.image.ImportSameImageResUtils
-import com.wanggaowan.android.dev.tools.utils.ex.imageRootDir
+import com.wanggaowan.android.dev.tools.utils.ex.resRootDir
 import com.wanggaowan.android.dev.tools.utils.ex.isAndroidProject
 import org.jetbrains.kotlin.idea.refactoring.project
 import java.io.File
@@ -73,7 +73,7 @@ class ImportSameImageListener : MoveHandlerDelegate(), PasteProvider {
 
         if (targetElement is PsiDirectory) {
             val project = targetElement.project
-            val imageRoot = project.imageRootDir
+            val imageRoot = project.resRootDir
             if (imageRoot != null) {
                 val imageRootPath = imageRoot.path
                 if (targetElement.virtualFile.path.startsWith(imageRootPath)) {

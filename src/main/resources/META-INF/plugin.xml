@@ -11,6 +11,7 @@
       <li>导入不同分辨率下的相同图片(支持粘贴、拖拽导入)，支持直接导入压缩包</li>
       <li>json转java实体</li>
       <li>json转kotlin实体</li>
+      <li>提取多语言</li>
     </ol>
   ]]></description>
 
@@ -19,6 +20,7 @@
     <ul>
       <li>图片导入支持粘贴、拖拽导入</li>
       <li>图片导入支持压缩包</li>
+      <li>增加提取多语言功能</li>
     </ul>
 
     <p>1.7</p>
@@ -120,6 +122,15 @@
             text="GsonFormatKT" description="json文件转化为kotlin实体">
             <add-to-group group-id="GenerateGroup" anchor="last" />
         </action>
+
+        <group>
+            <action
+                id="AndroidDevTools.ExtractStr2L10n"
+                class="com.wanggaowan.android.dev.tools.actions.ExtractStr2L10n"
+                text="提取为多语言"/>
+            <separator/>
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </group>
     </actions>
 
     <projectListeners>
@@ -130,6 +141,10 @@
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup displayType="BALLOON" id="com.wanggaowan.android.dev.tools"
             isLogByDefault="false" />
+
+        <projectConfigurable parentId="tools"
+            instance="com.wanggaowan.android.dev.tools.settings.ProjectPluginSettingsConfigurable"
+            id="AndroidDevTools.ProjectPluginSettingsConfigurable" displayName="AndroidDevTools"/>
 
         <filePasteProvider
             implementation="com.wanggaowan.android.dev.tools.listener.ImportSameImageListener"
