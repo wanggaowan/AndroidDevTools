@@ -1,6 +1,9 @@
 package com.wanggaowan.android.dev.tools.actions
 
-import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.LangDataKeys
 import com.wanggaowan.android.dev.tools.utils.ex.isAndroidProject
 
 /**
@@ -8,7 +11,7 @@ import com.wanggaowan.android.dev.tools.utils.ex.isAndroidProject
  *
  * @author Created by wanggaowan on 2023/12/25 11:12
  */
-class ToolsGroup:DefaultActionGroup() {
+class ToolsActionGroup : DefaultActionGroup() {
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT
     }

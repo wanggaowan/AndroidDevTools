@@ -1,14 +1,11 @@
-package com.wanggaowan.android.dev.tools.actions
+package com.wanggaowan.android.dev.tools.actions.translate
 
-import com.google.gson.Gson
-import com.google.gson.JsonObject
 import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
-import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -35,13 +32,9 @@ import com.wanggaowan.android.dev.tools.settings.PluginSettings
 import com.wanggaowan.android.dev.tools.ui.UIColor
 import com.wanggaowan.android.dev.tools.utils.NotificationUtils
 import com.wanggaowan.android.dev.tools.utils.Toast
+import com.wanggaowan.android.dev.tools.utils.TranslateUtils
 import com.wanggaowan.android.dev.tools.utils.ex.isAndroidProject
 import com.wanggaowan.android.dev.tools.utils.ex.resRootDir
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -57,26 +50,17 @@ import org.jetbrains.kotlin.psi.psiUtil.startOffset
 import java.awt.Dimension
 import java.awt.event.FocusEvent
 import java.awt.event.FocusListener
-import java.io.UnsupportedEncodingException
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import java.text.SimpleDateFormat
-import java.util.*
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import kotlin.math.max
-
-private val LOG = logger<ExtractStr2L10n>()
 
 /**
  * 提取文本为多语言
  *
  * @author Created by wanggaowan on 2023/10/7 10:56
  */
-class ExtractStr2L10n : DumbAwareAction() {
+class ExtractStr2L10nAction : DumbAwareAction() {
 
     private var selectedPsiElement: PsiElement? = null
     private var selectedPsiFile: PsiFile? = null
@@ -321,18 +305,15 @@ class ExtractStr2L10n : DumbAwareAction() {
                     progressIndicator.isIndeterminate = true
                     var finish = false
                     CoroutineScope(Dispatchers.Default).launch launch2@{
-                        val enTranslate = translate(translateText, "en")
-                        val key = mapStrToKey(enTranslate, isFormat)
+                        val enTranslate = TranslateUtils.translate(translateText, "en")
+                        val key = TranslateUtils.mapStrToKey(enTranslate, isFormat)
                         otherStringsFile.forEach { file ->
                             if (file.targetLanguage == "en" && !isFormat) {
                                 file.translate = enTranslate
                             } else {
-                                file.translate = translate(originalText, file.targetLanguage)
+                                file.translate = TranslateUtils.translate(originalText, file.targetLanguage)
                                 if (isFormat) {
-                                    file.translate = fixTranslatePlaceHolderStr(file.translate, templateEntryList)
-                                    if (file.targetLanguage == "en") {
-                                        file.translate = fixEnTranslatePlaceHolderStr(file.translate)
-                                    }
+                                    file.translate = TranslateUtils.fixTranslateError(file.translate, file.targetLanguage, templateEntryList)
                                 }
                             }
                         }
@@ -398,64 +379,6 @@ class ExtractStr2L10n : DumbAwareAction() {
                 }
             })
         }
-    }
-
-    /// 修复因翻译，导致占位符被翻译为大写的问题
-    private fun fixTranslatePlaceHolderStr(translate: String?, templateEntryList: List<KtStringTemplateEntry>): String? {
-        if (translate.isNullOrEmpty()) {
-            return null
-        }
-
-        var translateText: String = translate
-        val placeHolders = listOf("s", "d", "f", "l")
-        placeHolders.forEach {
-            // 如果templateEntryList有值，说明是kotlin语言，此时取最大占位符数量
-            for (i in 0 until max(6, templateEntryList.size + 1)) {
-                // 去除翻译后占位符之间的空格
-                translateText = if (i == 0) {
-                    translateText.replace("% $it", "%$it")
-                } else {
-                    translateText.replace("% $i \$ $it", "%$i\$$it")
-                }
-            }
-        }
-        return translateText
-    }
-
-    /// 修复英语，翻译后占位符和单词连在一起的问题
-    private fun fixEnTranslatePlaceHolderStr(translate: String?): String? {
-        if (translate.isNullOrEmpty()) {
-            return null
-        }
-
-        var translateText: String = translate
-        val placeHolders = listOf("s", "d", "f", "l")
-        placeHolders.forEach {
-            for (i in 0 until 6) {
-                // 去除翻译后占位符之间的空格
-                val placeHolder = if (i == 0) {
-                    "%$it"
-                } else {
-                    "%$i\$$it"
-                }
-                translateText = insertWhiteSpace(0, translateText, placeHolder)
-            }
-        }
-        return translateText
-    }
-
-    // 在占位符和单词直接插入空格
-    private fun insertWhiteSpace(start: Int, text: String, placeHolder: String): String {
-        var translateText = text
-        val index = translateText.indexOf(placeHolder, start)
-        if (index > 0) {
-            val chart = translateText.substring(index - 1, index)
-            if (chart.matches(Regex("[a-zA-Z0-9]"))) {
-                translateText = "${translateText.substring(0, index)} ${translateText.substring(index)}"
-                translateText = insertWhiteSpace(index + placeHolder.length + 1, translateText, placeHolder)
-            }
-        }
-        return translateText
     }
 
     private tailrec fun findAllKTStringTemplateEntry(
@@ -567,166 +490,6 @@ class ExtractStr2L10n : DumbAwareAction() {
             manager.saveDocument(document)
         } else {
             manager.saveAllDocuments()
-        }
-    }
-
-    private suspend fun translate(
-        text: String,
-        targetLanguage: String,
-    ): String? {
-        val uuid = UUID.randomUUID().toString()
-        val dateformat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
-        dateformat.timeZone = TimeZone.getTimeZone("UTC")
-        val time = dateformat.format(Date())
-
-        var accessKeyId = "TFRBSTV0UnFrbzY3QThVeFZDOGt4dHNu"
-        accessKeyId = String(mapValue(accessKeyId))
-        val queryMap = mutableMapOf<String, String>()
-        queryMap["AccessKeyId"] = accessKeyId
-        queryMap["Action"] = "TranslateGeneral"
-        queryMap["Format"] = "JSON"
-        queryMap["FormatType"] = "text"
-        queryMap["RegionId"] = "cn-hangzhou"
-        queryMap["Scene"] = "general"
-        queryMap["SignatureVersion"] = "1.0"
-        queryMap["SignatureMethod"] = "HMAC-SHA1"
-        queryMap["Status"] = "Available"
-        queryMap["SignatureNonce"] = uuid
-        queryMap["SourceLanguage"] = "zh"
-        queryMap["SourceText"] = text
-        queryMap["TargetLanguage"] = targetLanguage
-        queryMap["Timestamp"] = time
-        queryMap["Version"] = "2018-10-12"
-        var queryString = getCanonicalizedQueryString(queryMap, queryMap.keys.toTypedArray())
-
-        val stringToSign = "GET" + "&" + encodeURI("/") + "&" + encodeURI(queryString)
-        val signature = encodeURI(Base64.getEncoder().encodeToString(signatureMethod(stringToSign)))
-        queryString += "&Signature=$signature"
-        try {
-            val response = HttpClient(CIO) {
-                engine {
-                    requestTimeout = 5000
-                    endpoint {
-                        connectTimeout = 5000
-                    }
-                }
-            }.get("https://mt.cn-hangzhou.aliyuncs.com/?$queryString")
-            val body = response.bodyAsText()
-            if (body.isEmpty()) {
-                return null
-            }
-
-            // {"RequestId":"A721413A-7DCD-51B0-8AEE-FCE433CEACA2","Data":{"WordCount":"4","Translated":"Test Translation"},"Code":"200"}
-            val jsonObject = Gson().fromJson(body, JsonObject::class.java)
-            val code = jsonObject.getAsJsonPrimitive("Code").asString
-            if (code != "200") {
-                LOG.error("阿里翻译失败：$body")
-                return null
-            }
-
-            val data = jsonObject.getAsJsonObject("Data") ?: return null
-            return data.getAsJsonPrimitive("Translated").asString
-        } catch (e: Exception) {
-            LOG.error("阿里翻译失败：${e.message}")
-            return null
-        }
-    }
-
-    private fun mapStrToKey(str: String?, isFormat: Boolean): String? {
-        if (str.isNullOrEmpty()) {
-            return null
-        }
-
-        // \pP：中的小写p是property的意思，表示Unicode属性，用于Unicode正表达式的前缀。
-        //
-        // P：标点字符
-        //
-        // L：字母；
-        //
-        // M：标记符号（一般不会单独出现）；
-        //
-        // Z：分隔符（比如空格、换行等）；
-        //
-        // S：符号（比如数学符号、货币符号等）；
-        //
-        // N：数字（比如阿拉伯数字、罗马数字等）；
-        //
-        // C：其他字符
-        var value = str
-        value = value.lowercase().replace(Regex("[\\pP\\pS]"), "_")
-            .replace(" ", "_")
-        if (isFormat) {
-            value += "_format"
-        }
-
-        value = value.replace("_____", "_")
-            .replace("____", "_")
-            .replace("___", "_")
-            .replace("__", "_")
-
-        if (value.startsWith("_")) {
-            value = value.substring(1, value.length)
-        }
-
-        if (value.endsWith("_")) {
-            value = value.substring(0, value.length - 1)
-        }
-
-        return value
-    }
-
-    @Throws(java.lang.Exception::class)
-    private fun signatureMethod(stringToSign: String?): ByteArray? {
-        val secret = "V3FWRGI3c210UW9rOGJUOXF2VHhENnYzbmF1bjU1Jg=="
-        if (stringToSign == null) {
-            return null
-        }
-        val sha256Hmac = Mac.getInstance("HmacSHA1")
-        val secretKey = SecretKeySpec(mapValue(secret), "HmacSHA1")
-        sha256Hmac.init(secretKey)
-        return sha256Hmac.doFinal(stringToSign.toByteArray())
-    }
-
-    @Throws(java.lang.Exception::class)
-    fun getCanonicalizedQueryString(
-        query: Map<String, String?>,
-        keys: Array<String>
-    ): String {
-        if (query.isEmpty()) {
-            return ""
-        }
-        if (keys.isEmpty()) {
-            return ""
-        }
-
-        val sb = StringBuilder()
-        Arrays.sort(keys)
-
-
-        var key: String?
-        var value: String?
-        for (i in keys.indices) {
-            key = keys[i]
-            sb.append(encodeURI(key))
-            value = query[key]
-            sb.append("=")
-            if (!value.isNullOrEmpty()) {
-                sb.append(encodeURI(value))
-            }
-            sb.append("&")
-        }
-        return sb.deleteCharAt(sb.length - 1).toString()
-    }
-
-    private fun mapValue(value: String): ByteArray {
-        return Base64.getDecoder().decode(value)
-    }
-
-    private fun encodeURI(content: String): String {
-        return try {
-            URLEncoder.encode(content, StandardCharsets.UTF_8.name()).replace("+", "%20").replace("%7E", "~")
-        } catch (var2: UnsupportedEncodingException) {
-            content
         }
     }
 }

@@ -6,7 +6,7 @@ plugins {
 
 group = "com.wanggaowan.android.dev.tools"
 // version = "1.0-SNAPSHOT"
-version = "1.8"
+version = "1.9"
 
 repositories {
     mavenCentral()

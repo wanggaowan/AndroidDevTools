@@ -12,10 +12,16 @@
       <li>json转java实体</li>
       <li>json转kotlin实体</li>
       <li>提取多语言</li>
+      <li>根据模版strings.xml翻译其它语言strings.xml文件功能</li>
     </ol>
   ]]></description>
 
     <change-notes><![CDATA[
+    <p>1.9</p>
+    <ul>
+      <li>增加根据模版strings.xml翻译其它语言strings.xml文件功能</li>
+    </ul>
+
     <p>1.8</p>
     <ul>
       <li>图片导入支持粘贴、拖拽导入</li>
@@ -80,7 +86,7 @@
 
     <actions>
         <group id="AndroidDevTools" text="Android Dev Tools" popup="true"
-            class="com.wanggaowan.android.dev.tools.actions.ToolsGroup">
+            class="com.wanggaowan.android.dev.tools.actions.ToolsActionGroup">
             <add-to-group group-id="ToolsMenu" anchor="last" />
             <action id="AndroidDevTools.ImportSameImageResAction"
                 class="com.wanggaowan.android.dev.tools.actions.image.ImportSameImageResAction"
@@ -124,13 +130,19 @@
         </action>
 
         <group>
-            <action
-                id="AndroidDevTools.ExtractStr2L10n"
-                class="com.wanggaowan.android.dev.tools.actions.ExtractStr2L10n"
-                text="提取为多语言"/>
-            <separator/>
-            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <action id="AndroidDevTools.ExtractStr2L10n"
+                class="com.wanggaowan.android.dev.tools.actions.translate.ExtractStr2L10nAction"
+                text="提取为多语言" />
+            <separator />
+            <add-to-group group-id="EditorPopupMenu" anchor="first" />
         </group>
+
+        <action id="AndroidDevTools.TranslateStringsAction"
+            class="com.wanggaowan.android.dev.tools.actions.translate.TranslateStringsAction"
+            text="根据模版strings.xml翻译"
+            description="根据模版strings.xml对应内容，将当前文件不存在的内容进行翻译并插入">
+            <add-to-group group-id="CutCopyPasteGroup" anchor="last" />
+        </action>
     </actions>
 
     <projectListeners>
@@ -144,7 +156,7 @@
 
         <projectConfigurable parentId="tools"
             instance="com.wanggaowan.android.dev.tools.settings.ProjectPluginSettingsConfigurable"
-            id="AndroidDevTools.ProjectPluginSettingsConfigurable" displayName="AndroidDevTools"/>
+            id="AndroidDevTools.ProjectPluginSettingsConfigurable" displayName="AndroidDevTools" />
 
         <filePasteProvider
             implementation="com.wanggaowan.android.dev.tools.listener.ImportSameImageListener"
