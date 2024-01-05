@@ -7,9 +7,6 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
-import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
@@ -31,6 +28,7 @@ import com.intellij.util.ui.UIUtil
 import com.wanggaowan.android.dev.tools.settings.PluginSettings
 import com.wanggaowan.android.dev.tools.ui.UIColor
 import com.wanggaowan.android.dev.tools.utils.NotificationUtils
+import com.wanggaowan.android.dev.tools.utils.ProgressUtils
 import com.wanggaowan.android.dev.tools.utils.Toast
 import com.wanggaowan.android.dev.tools.utils.TranslateUtils
 import com.wanggaowan.android.dev.tools.utils.ex.isAndroidProject
@@ -300,84 +298,76 @@ class ExtractStr2L10nAction : DumbAwareAction() {
                 replaceElement(selectedFile, selectedElement, templateEntryList, existKey)
             }
         } else {
-            ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Translate") {
-                override fun run(progressIndicator: ProgressIndicator) {
-                    progressIndicator.isIndeterminate = true
-                    var finish = false
-                    CoroutineScope(Dispatchers.Default).launch launch2@{
-                        val enTranslate = TranslateUtils.translate(translateText, "en")
-                        val key = TranslateUtils.mapStrToKey(enTranslate, isFormat)
-                        otherStringsFile.forEach { file ->
-                            if (file.targetLanguage == "en" && !isFormat) {
-                                file.translate = enTranslate
-                            } else {
-                                file.translate = TranslateUtils.translate(originalText, file.targetLanguage)
-                                if (isFormat) {
-                                    file.translate = TranslateUtils.fixTranslateError(file.translate, file.targetLanguage, templateEntryList)
-                                }
+            ProgressUtils.runBackground(project, "Translate") { progressIndicator ->
+                progressIndicator.isIndeterminate = true
+                CoroutineScope(Dispatchers.Default).launch launch2@{
+                    val enTranslate = TranslateUtils.translate(translateText, "en")
+                    val key = TranslateUtils.mapStrToKey(enTranslate, isFormat)
+                    otherStringsFile.forEach { file ->
+                        if (file.targetLanguage == "en" && !isFormat) {
+                            file.translate = enTranslate
+                        } else {
+                            file.translate = TranslateUtils.translate(originalText, file.targetLanguage)
+                            if (isFormat) {
+                                file.translate = TranslateUtils.fixTranslateError(file.translate, file.targetLanguage, templateEntryList)
+                            }
+                        }
+                    }
+
+                    CoroutineScope(Dispatchers.Main).launch {
+                        var showRename = false
+                        if (key == null || PluginSettings.getExtractStr2L10nShowRenameDialog(project)) {
+                            showRename = true
+                        } else {
+                            if (xmlTag?.findFirstSubTag(key) != null) {
+                                showRename = true
                             }
                         }
 
-                        CoroutineScope(Dispatchers.Main).launch {
-                            var showRename = false
-                            if (key == null || PluginSettings.getExtractStr2L10nShowRenameDialog(project)) {
-                                showRename = true
-                            } else {
-                                if (xmlTag?.findFirstSubTag(key) != null) {
-                                    showRename = true
-                                }
-                            }
-
-                            finish = true
+                        if (showRename) {
                             progressIndicator.isIndeterminate = false
                             progressIndicator.fraction = 1.0
-                            if (showRename) {
-                                val newKey = renameKey(project, key, xmlTag, otherStringsFile)
-                                    ?: return@launch
-                                WriteCommandAction.runWriteCommandAction(project) {
-                                    insertElement(project, stringsPsiFile, xmlTag, newKey, originalText)
-                                    replaceElement(selectedFile, selectedElement, templateEntryList, newKey)
-                                    otherStringsFile.forEach { file ->
-                                        val tl = file.translate
-                                        if (!tl.isNullOrEmpty()) {
-                                            insertElement(
-                                                project,
-                                                file.stringsFile,
-                                                file.xmlTag,
-                                                newKey,
-                                                tl,
-                                            )
-                                        }
-                                    }
-                                }
-                            } else {
-                                WriteCommandAction.runWriteCommandAction(project) {
-                                    insertElement(project, stringsPsiFile, xmlTag, key!!, originalText)
-                                    replaceElement(selectedFile, selectedElement, templateEntryList, key)
-                                    otherStringsFile.forEach { file ->
-                                        val tl = file.translate
-                                        if (!tl.isNullOrEmpty()) {
-                                            insertElement(
-                                                project,
-                                                file.stringsFile,
-                                                file.xmlTag,
-                                                key,
-                                                tl,
-                                            )
-                                        }
+                            val newKey = renameKey(project, key, xmlTag, otherStringsFile)
+                                ?: return@launch
+                            WriteCommandAction.runWriteCommandAction(project) {
+                                insertElement(project, stringsPsiFile, xmlTag, newKey, originalText)
+                                replaceElement(selectedFile, selectedElement, templateEntryList, newKey)
+                                otherStringsFile.forEach { file ->
+                                    val tl = file.translate
+                                    if (!tl.isNullOrEmpty()) {
+                                        insertElement(
+                                            project,
+                                            file.stringsFile,
+                                            file.xmlTag,
+                                            newKey,
+                                            tl,
+                                        )
                                     }
                                 }
                             }
+                        } else {
+                            WriteCommandAction.runWriteCommandAction(project) {
+                                insertElement(project, stringsPsiFile, xmlTag, key!!, originalText)
+                                replaceElement(selectedFile, selectedElement, templateEntryList, key)
+                                otherStringsFile.forEach { file ->
+                                    val tl = file.translate
+                                    if (!tl.isNullOrEmpty()) {
+                                        insertElement(
+                                            project,
+                                            file.stringsFile,
+                                            file.xmlTag,
+                                            key,
+                                            tl,
+                                        )
+                                    }
+                                }
+                                progressIndicator.isIndeterminate = false
+                                progressIndicator.fraction = 1.0
+                            }
                         }
                     }
-
-                    while (!finish) {
-                        Thread.sleep(100)
-                    }
-                    progressIndicator.isIndeterminate = false
-                    progressIndicator.fraction = 1.0
                 }
-            })
+            }
         }
     }
 

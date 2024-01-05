@@ -4,9 +4,6 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
 import com.intellij.openapi.command.WriteCommandAction
-import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageType
 import com.intellij.openapi.util.TextRange
@@ -16,6 +13,7 @@ import com.intellij.psi.*
 import com.intellij.psi.codeStyle.JavaCodeStyleManager
 import com.intellij.psi.impl.source.codeStyle.CodeStyleManagerImpl
 import com.intellij.psi.util.PsiTreeUtil
+import com.wanggaowan.android.dev.tools.utils.ProgressUtils
 import com.wanggaowan.android.dev.tools.utils.StringUtils
 import com.wanggaowan.android.dev.tools.utils.Toast
 import java.awt.Point
@@ -116,25 +114,23 @@ class JsonToJavaDialog(
                 return@addActionListener
             }
 
-            ProgressManager.getInstance().run(object : Task.Backgroundable(project, "GsonFormat") {
-                override fun run(progressIndicator: ProgressIndicator) {
-                    progressIndicator.isIndeterminate = true
-                    WriteCommandAction.runWriteCommandAction(project) {
-                        val factory = JavaPsiFacade.getElementFactory(project)
-                        if (mRootElement == null) {
-                            val element = createClass(factory, objName)
-                            val lastChild = psiFile.lastChild
-                            createJavaObjectOnJsonObject(factory, jsonObject, element)
-                            psiFile.addAfter(element, lastChild)
-                        } else {
-                            createJavaObjectOnJsonObject(factory, jsonObject, mRootElement!!)
-                        }
-                        reformatFile(project, psiFile)
+            ProgressUtils.runBackground(project,"GsonFormat") {progressIndicator->
+                progressIndicator.isIndeterminate = true
+                WriteCommandAction.runWriteCommandAction(project) {
+                    val factory = JavaPsiFacade.getElementFactory(project)
+                    if (mRootElement == null) {
+                        val element = createClass(factory, objName)
+                        val lastChild = psiFile.lastChild
+                        createJavaObjectOnJsonObject(factory, jsonObject, element)
+                        psiFile.addAfter(element, lastChild)
+                    } else {
+                        createJavaObjectOnJsonObject(factory, jsonObject, mRootElement!!)
                     }
-                    progressIndicator.isIndeterminate = false
-                    progressIndicator.fraction = 1.0
+                    reformatFile(project, psiFile)
                 }
-            })
+                progressIndicator.isIndeterminate = false
+                progressIndicator.fraction = 1.0
+            }
         }
     }
 

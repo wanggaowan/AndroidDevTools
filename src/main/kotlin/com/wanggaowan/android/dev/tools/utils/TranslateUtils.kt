@@ -193,6 +193,7 @@ object TranslateUtils {
         if (targetLanguage == "en") {
             translateStr = fixEnTranslatePlaceHolderStr(translateStr)
         }
+        translateStr = translateStr?.replace("'","\\'")
         return translateStr
     }
 
