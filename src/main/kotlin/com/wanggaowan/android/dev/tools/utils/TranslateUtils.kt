@@ -137,7 +137,10 @@ object TranslateUtils {
 
     private fun encodeURI(content: String): String {
         return try {
-            URLEncoder.encode(content, StandardCharsets.UTF_8.name()).replace("+", "%20").replace("%7E", "~")
+            URLEncoder.encode(content, StandardCharsets.UTF_8.name())
+                .replace("+", "%20")
+                .replace("%7E", "~")
+                .replace("*", "%2A")
         } catch (var2: UnsupportedEncodingException) {
             content
         }
@@ -193,7 +196,7 @@ object TranslateUtils {
         if (targetLanguage == "en") {
             translateStr = fixEnTranslatePlaceHolderStr(translateStr)
         }
-        translateStr = translateStr?.replace("'","\\'")
+        translateStr = translateStr?.replace("'", "\\'")
         return translateStr
     }
 
@@ -210,8 +213,10 @@ object TranslateUtils {
             for (i in 0 until max(6, (templateEntryList?.size ?: 0) + 1)) {
                 // 去除翻译后占位符之间的空格
                 translateText = if (i == 0) {
+                    // 正则：%\s+s
                     fixFormatError(Regex("%\\s+$it"), translateText, "%$it")
                 } else {
+                    // 正则：%\s*1\s*\$\s*s
                     fixFormatError(Regex("%\\s*$i\\s*\\\$\\s*$it"), translateText, "%$i\$$it")
                 }
             }
