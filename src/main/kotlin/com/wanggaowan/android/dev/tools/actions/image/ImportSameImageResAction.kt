@@ -36,17 +36,14 @@ class ImportSameImageResAction : AnAction() {
             if (!files.isNullOrEmpty()) {
                 var module = e.getData(LangDataKeys.MODULE)
                 module = if (module.isAndroidProject) module else null
-
-                val importToFolder = if (module == null) null else
-                    VirtualFileManager.getInstance()
-                        .findFileByUrl("file://${module.resRootDir}")
+                val importToFolder = module?.resRootDir
                 ImportSameImageResUtils.import(project, files, importToFolder)
             }
         }
     }
 }
 
-object ImportSameImageResUtils{
+object ImportSameImageResUtils {
     fun import(
         project: Project,
         files: List<VirtualFile>,
@@ -59,8 +56,7 @@ object ImportSameImageResUtils{
         progressHelper.done()
         var selectFile: VirtualFile? = importToFolder
         if (selectFile == null) {
-            selectFile =
-                VirtualFileManager.getInstance().findFileByUrl("file://${project.basePath}/app/src/main/res")
+            selectFile = project.resRootDir
         }
 
         val dialog = ImportImageFolderChooser(project, "导入图片", selectFile, distinctFiles)
@@ -82,7 +78,10 @@ object ImportSameImageResUtils{
     /**
      * 获取选择的文件去重后的数据
      */
-    private fun getDistinctFiles(project: Project,selectedFiles: List<VirtualFile>): List<VirtualFile> {
+    private fun getDistinctFiles(
+        project: Project,
+        selectedFiles: List<VirtualFile>
+    ): List<VirtualFile> {
         val dataList = mutableListOf<VirtualFile>()
         selectedFiles.forEach {
             if (it.isDirectory) {
@@ -162,7 +161,8 @@ object ImportSameImageResUtils{
 
             val unZipFile = ZipUtil.unzip(file.path, descDir) ?: return
             val directory =
-                VirtualFileManager.getInstance().refreshAndFindFileByUrl("file://${unZipFile.path}") ?: return
+                VirtualFileManager.getInstance().refreshAndFindFileByUrl("file://${unZipFile.path}")
+                    ?: return
             parseDirectory(directory, dataList)
         }
     }

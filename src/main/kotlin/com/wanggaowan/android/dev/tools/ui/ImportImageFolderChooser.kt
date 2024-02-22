@@ -1,41 +1,24 @@
 package com.wanggaowan.android.dev.tools.ui
 
-import com.intellij.ide.projectView.ProjectViewNode
-import com.intellij.ide.projectView.TreeStructureProvider
-import com.intellij.ide.projectView.impl.AbstractProjectTreeStructure
-import com.intellij.ide.projectView.impl.ProjectAbstractTreeStructureBase
-import com.intellij.ide.projectView.impl.ProjectTreeBuilder
-import com.intellij.ide.projectView.impl.nodes.PsiFileNode
-import com.intellij.ide.util.TreeFileChooser
-import com.intellij.ide.util.treeView.AlphaComparator
-import com.intellij.ide.util.treeView.NodeRenderer
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageType
-import com.intellij.openapi.util.Condition
+import com.intellij.openapi.ui.getTreePath
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.wm.WindowManager
-import com.intellij.psi.PsiFile
-import com.intellij.ui.ColorUtil
 import com.intellij.ui.JBColor
 import com.intellij.ui.ScrollPaneFactory
-import com.intellij.ui.treeStructure.Tree
-import com.intellij.util.ArrayUtil
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
-import com.wanggaowan.android.dev.tools.listener.SimpleComponentListener
 import com.wanggaowan.android.dev.tools.utils.Toast
+import com.wanggaowan.android.dev.tools.utils.ex.rootDir
 import java.awt.*
-import java.awt.event.ComponentEvent
 import java.io.File
+import java.util.*
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
-import javax.swing.tree.DefaultMutableTreeNode
-import javax.swing.tree.DefaultTreeModel
-import javax.swing.tree.TreeSelectionModel
+import javax.swing.tree.*
 
 /**
  * 导入图片资源后选择导入的目标文件夹弹窗，兼带重命名导入文件名称功能
@@ -50,12 +33,8 @@ class ImportImageFolderChooser(
      * 需要重命名的文件
      */
     renameFiles: List<VirtualFile>? = null,
-    /**
-     * 文件夹过滤器
-     */
-    private val filter: TreeFileChooser.PsiFileFilter? = null
 ) : JDialog() {
-    private lateinit var myTree: Tree
+    private lateinit var myTree: JTree
     private lateinit var mBtnOk: JButton
     private lateinit var mJChosenFolder: JLabel
     private lateinit var mJRenamePanel: JPanel
@@ -70,9 +49,6 @@ class ImportImageFolderChooser(
      */
     private var mSelectedFolder: VirtualFile? = null
 
-    private var mBuilder: ProjectTreeBuilder? = null
-    private val mDisableStructureProviders = false
-    private val mShowLibraryContents = false
     private var mCardShow = CARD_RENAME
     private var mRenameFileMap = mutableMapOf<String, MutableList<RenameEntity>>()
 
@@ -105,8 +81,6 @@ class ImportImageFolderChooser(
         pack()
 
         if (initialFile != null) {
-            // dialog does not exist yet
-            SwingUtilities.invokeLater { selectFolder(initialFile) }
             mBtnOk.isEnabled = true
             mJChosenFolder.text = initialFile.path.replace(project.basePath ?: "", "")
         } else {
@@ -118,7 +92,8 @@ class ImportImageFolderChooser(
         if (visible) {
             val window = WindowManager.getInstance().suggestParentWindow(project)
             window?.let {
-                location = Point(it.x + (it.width - this.width) / 2, it.y + (it.height - this.height) / 2)
+                location =
+                    Point(it.x + (it.width - this.width) / 2, it.y + (it.height - this.height) / 2)
             }
         }
         super.setVisible(visible)
@@ -131,35 +106,24 @@ class ImportImageFolderChooser(
      * 构建文件选择面板
      */
     private fun createFileChoosePanel(): JComponent {
-        val model = DefaultTreeModel(DefaultMutableTreeNode())
-        myTree = Tree(model)
-        val treeStructure: ProjectAbstractTreeStructureBase = object : AbstractProjectTreeStructure(project) {
-            override fun isHideEmptyMiddlePackages(): Boolean {
-                return true
-            }
+        val model = DefaultTreeModel(FileTreeNode(project.rootDir))
+        myTree = JTree(model)
+        myTree.selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
 
-            override fun getChildElements(element: Any): Array<Any> {
-                return filterFiles(super.getChildElements(element))
-            }
+        val render = DefaultTreeCellRenderer()
+        render.leafIcon = render.defaultClosedIcon
+        render.backgroundNonSelectionColor = Color(0x00000000, true)
+        render.backgroundSelectionColor = Color(0x00000000, true)
+        render.borderSelectionColor = null
+        myTree.cellRenderer = render
 
-            override fun isShowLibraryContents(): Boolean {
-                return mShowLibraryContents
-            }
-
-            override fun isShowModules(): Boolean {
-                return false
-            }
-
-            override fun getProviders(): List<TreeStructureProvider>? {
-                return if (mDisableStructureProviders) null else super.getProviders()
-            }
+        if (mSelectedFolder != null) {
+            val path = model.getTreePath(mSelectedFolder)
+            myTree.selectionModel.selectionPath = path
+        } else {
+            myTree.expandRow(0)
         }
 
-        mBuilder = ProjectTreeBuilder(project, myTree, model, AlphaComparator.INSTANCE, treeStructure)
-        myTree.isRootVisible = false
-        myTree.expandRow(0)
-        myTree.selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
-        myTree.cellRenderer = NodeRenderer()
         val scrollPane = ScrollPaneFactory.createScrollPane(myTree)
         scrollPane.preferredSize = JBUI.size(600, 300)
         myTree.addTreeSelectionListener { handleSelectionChanged() }
@@ -241,7 +205,8 @@ class ImportImageFolderChooser(
                 panel.add(box2, cc)
 
                 val (existFile, isInMap) = isImageExist(it.key, it2)
-                val existFileImageView = ImageView(if (existFile != null) File(existFile.path) else null)
+                val existFileImageView =
+                    ImageView(if (existFile != null) File(existFile.path) else null)
                 existFileImageView.preferredSize = JBUI.size(34, 16)
                 existFileImageView.minimumSize = JBUI.size(34, 16)
                 existFileImageView.maximumSize = JBUI.size(34, 16)
@@ -407,17 +372,6 @@ class ImportImageFolderChooser(
     }
 
     /**
-     * 选择文件夹
-     */
-    private fun selectFolder(file: VirtualFile) {
-        // Select element in the tree
-        ApplicationManager.getApplication().invokeLater({
-            @Suppress("UnstableApiUsage")
-            mBuilder?.selectAsync(file, file, false)
-        }, ModalityState.stateForComponent(rootPane))
-    }
-
-    /**
      * 获取重命名文件Map，key为原始文件名称，value为重命名的值
      */
     fun getRenameFileMap(): Map<String, List<RenameEntity>> {
@@ -449,51 +403,15 @@ class ImportImageFolderChooser(
 
     private fun isChosenFolder(): Boolean {
         val path = myTree.selectionPath ?: return false
-        val node = path.lastPathComponent as DefaultMutableTreeNode
-        val userObject = node.userObject as? ProjectViewNode<*> ?: return false
-        val vFile = userObject.virtualFile
+        val node = path.lastPathComponent
+        if (node !is FileTreeNode) {
+            return false
+        }
+
+        val vFile = node.file
         return (vFile != null).apply {
             mSelectedFolder = vFile
-
         }
-    }
-
-    private fun filterFiles(list: Array<*>): Array<Any> {
-        val condition = Condition { psiFile: PsiFile ->
-            if (!psiFile.isDirectory) {
-                return@Condition false
-            } else if (filter != null && !filter.accept(psiFile)) {
-                return@Condition false
-            }
-
-            true
-        }
-
-        val result: MutableList<Any?> = ArrayList(list.size)
-        for (obj in list) {
-            val psiFile: PsiFile? = when (obj) {
-                is PsiFile -> {
-                    obj
-                }
-
-                is PsiFileNode -> {
-                    obj.value
-                }
-
-                else -> {
-                    null
-                }
-            }
-            if (psiFile != null && !condition.value(psiFile)) {
-                continue
-            } else if (obj is ProjectViewNode<*>) {
-                if (!obj.canHaveChildrenMatching(condition)) {
-                    continue
-                }
-            }
-            result.add(obj)
-        }
-        return ArrayUtil.toObjectArray(result)
     }
 
     /**
@@ -505,67 +423,80 @@ class ImportImageFolderChooser(
         var selectFile: VirtualFile?
         val fileName = entity.newName
         if (groupKey == "Drawable") {
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xhdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/drawable-xhdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xxhdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/drawable-xxhdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/drawable/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-hdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/drawable-hdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-mdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/drawable-mdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-xxxhdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/drawable-xxxhdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/drawable-nodpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/drawable-nodpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
         } else {
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-xhdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/mipmap-xhdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-xxhdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/mipmap-xxhdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-hdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/mipmap-hdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-mdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/mipmap-mdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap-xxxhdpi/$fileName")
+            selectFile = VirtualFileManager.getInstance()
+                .findFileByUrl("file://${rootDir}/mipmap-xxxhdpi/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
 
-            selectFile = VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap/$fileName")
+            selectFile =
+                VirtualFileManager.getInstance().findFileByUrl("file://${rootDir}/mipmap/$fileName")
             if (selectFile != null) {
                 return Pair(selectFile, false)
             }
@@ -622,3 +553,55 @@ data class RenameEntity(
      */
     var coverExistFile: Boolean = false
 )
+
+class FileTreeNode(val file: VirtualFile?) : DefaultMutableTreeNode(file, true) {
+
+    override fun getChildCount(): Int {
+        return if (file == null) 0 else if (children != null) {
+            children.size
+        } else {
+            file.children.forEach {
+                if (it.isDirectory && !it.name.startsWith(".")) {
+                    val index = if (children == null) 0 else children.size
+                    insert(FileTreeNode(it), index)
+                }
+            }
+
+            if (children == null) {
+                children = Vector()
+                0
+            } else {
+                children.size
+            }
+        }
+    }
+
+    override fun children(): Enumeration<TreeNode> {
+        return if (file == null) EMPTY_ENUMERATION else if (children != null) {
+            children.elements()
+        } else {
+            file.children.forEach {
+                if (it.isDirectory && !it.name.startsWith(".")) {
+                    val index = if (children == null) 0 else children.size
+                    insert(FileTreeNode(it), index)
+                }
+            }
+
+            if (children == null) {
+                children = Vector()
+                EMPTY_ENUMERATION
+            } else {
+                children.elements()
+            }
+        }
+    }
+
+    override fun isLeaf(): Boolean {
+        val isLeft = super.isLeaf()
+        return isLeft
+    }
+
+    override fun toString(): String {
+        return file?.name ?: ""
+    }
+}
