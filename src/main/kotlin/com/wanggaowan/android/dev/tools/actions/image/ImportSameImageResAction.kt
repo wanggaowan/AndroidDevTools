@@ -4,6 +4,7 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.LangDataKeys
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
@@ -13,6 +14,8 @@ import com.intellij.openapi.vfs.VirtualFileManager
 import com.wanggaowan.android.dev.tools.ui.ImportImageFolderChooser
 import com.wanggaowan.android.dev.tools.ui.RenameEntity
 import com.wanggaowan.android.dev.tools.utils.*
+import com.wanggaowan.android.dev.tools.utils.ex.isAndroidProject
+import com.wanggaowan.android.dev.tools.utils.ex.resRootDir
 
 
 /**
@@ -31,8 +34,12 @@ class ImportSameImageResAction : AnAction() {
         val descriptor = FileChooserDescriptor(true, true, true, true, false, true)
         FileChooser.chooseFiles(descriptor, project, null) { files ->
             if (!files.isNullOrEmpty()) {
-                val importToFolder = VirtualFileManager.getInstance()
-                        .findFileByUrl("file://${project.basePath}/app/src/main/res")
+                var module = e.getData(LangDataKeys.MODULE)
+                module = if (module.isAndroidProject) module else null
+
+                val importToFolder = if (module == null) null else
+                    VirtualFileManager.getInstance()
+                        .findFileByUrl("file://${module.resRootDir}")
                 ImportSameImageResUtils.import(project, files, importToFolder)
             }
         }
