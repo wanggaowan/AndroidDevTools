@@ -38,6 +38,10 @@ tasks {
         kotlinOptions.jvmTarget = "17"
     }
 
+    buildSearchableOptions{
+        enabled = false
+    }
+
     patchPluginXml {
         sinceBuild.set("223")
         untilBuild.set("10000.*")
@@ -51,5 +55,9 @@ tasks {
 
     publishPlugin {
         token.set(System.getenv("PUBLISH_TOKEN"))
+    }
+
+    instrumentCode {
+        compilerVersion.set("223.8836.35")
     }
 }
