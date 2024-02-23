@@ -24,6 +24,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
 import com.intellij.util.LocalTimeCounter
 import com.intellij.util.ui.FormBuilder
+import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import com.wanggaowan.android.dev.tools.settings.PluginSettings
 import com.wanggaowan.android.dev.tools.ui.UIColor
@@ -91,7 +92,10 @@ class ExtractStr2L10nAction : DumbAwareAction() {
             return
         }
 
-        if (!psiFile.name.endsWith(".xml") && !psiFile.name.endsWith(".java") && !psiFile.name.endsWith(".kt")) {
+        if (!psiFile.name.endsWith(".xml") && !psiFile.name.endsWith(".java") && !psiFile.name.endsWith(
+                ".kt"
+            )
+        ) {
             e.presentation.isVisible = false
             return
         }
@@ -162,7 +166,8 @@ class ExtractStr2L10nAction : DumbAwareAction() {
             return
         }
 
-        val stringsFile = VirtualFileManager.getInstance().findFileByUrl("file://${resRootDir.path}/values/strings.xml")
+        val stringsFile = VirtualFileManager.getInstance()
+            .findFileByUrl("file://${resRootDir.path}/values/strings.xml")
         if (stringsFile == null || stringsFile.isDirectory) {
             NotificationUtils.showBalloonMsg(
                 project,
@@ -224,8 +229,9 @@ class ExtractStr2L10nAction : DumbAwareAction() {
 
                     val stringsXml = file.findChild("strings.xml")
                     val stringsPsiXml = stringsXml?.toPsiFile(project) ?: continue
-                    val xmlTag2 = stringsPsiXml.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()
-                        ?: continue
+                    val xmlTag2 =
+                        stringsPsiXml.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()
+                            ?: continue
                     if (existKey != null && isExistKey(xmlTag2, existKey)) {
                         // 其它语言已存在当前key
                         continue
@@ -233,7 +239,13 @@ class ExtractStr2L10nAction : DumbAwareAction() {
 
                     val targetLanguage = name.substring("values-".length)
                     if (targetLanguage.isNotEmpty()) {
-                        otherStringsFile.add(TranslateStringsFile(targetLanguage, stringsPsiXml, xmlTag2))
+                        otherStringsFile.add(
+                            TranslateStringsFile(
+                                targetLanguage,
+                                stringsPsiXml,
+                                xmlTag2
+                            )
+                        )
                     }
                 }
             }
@@ -298,20 +310,43 @@ class ExtractStr2L10nAction : DumbAwareAction() {
                 replaceElement(selectedFile, selectedElement, templateEntryList, existKey)
             }
         } else {
-            ProgressUtils.runBackground(project, "Translate") { progressIndicator ->
-                progressIndicator.isIndeterminate = true
+            ProgressUtils.runBackground(project, "Translate", true) { progressIndicator ->
+                progressIndicator.isIndeterminate = false
+                val totalCount = 1.0 + otherStringsFile.size
                 CoroutineScope(Dispatchers.Default).launch launch2@{
                     val enTranslate = TranslateUtils.translate(translateText, "en")
                     val key = TranslateUtils.mapStrToKey(enTranslate, isFormat)
+                    if (progressIndicator.isCanceled) {
+                        return@launch2
+                    }
+
+                    var current = 1.0
+                    progressIndicator.fraction = current / totalCount * 0.95
                     otherStringsFile.forEach { file ->
                         if (file.targetLanguage == "en" && !isFormat) {
                             file.translate = enTranslate
                         } else {
-                            file.translate = TranslateUtils.translate(originalText, file.targetLanguage)
+                            file.translate =
+                                TranslateUtils.translate(originalText, file.targetLanguage)
                             if (isFormat) {
-                                file.translate = TranslateUtils.fixTranslateError(file.translate, file.targetLanguage, templateEntryList)
+                                file.translate = TranslateUtils.fixTranslateError(
+                                    file.translate,
+                                    file.targetLanguage,
+                                    templateEntryList
+                                )
                             }
                         }
+
+                        if (progressIndicator.isCanceled) {
+                            return@launch2
+                        }
+
+                        current++
+                        progressIndicator.fraction = current / totalCount * 0.95
+                    }
+
+                    if (progressIndicator.isCanceled) {
+                        return@launch2
                     }
 
                     CoroutineScope(Dispatchers.Main).launch {
@@ -324,14 +359,22 @@ class ExtractStr2L10nAction : DumbAwareAction() {
                             }
                         }
 
+                        if (progressIndicator.isCanceled) {
+                            return@launch
+                        }
+
                         if (showRename) {
-                            progressIndicator.isIndeterminate = false
                             progressIndicator.fraction = 1.0
                             val newKey = renameKey(project, key, xmlTag, otherStringsFile)
                                 ?: return@launch
                             WriteCommandAction.runWriteCommandAction(project) {
                                 insertElement(project, stringsPsiFile, xmlTag, newKey, originalText)
-                                replaceElement(selectedFile, selectedElement, templateEntryList, newKey)
+                                replaceElement(
+                                    selectedFile,
+                                    selectedElement,
+                                    templateEntryList,
+                                    newKey
+                                )
                                 otherStringsFile.forEach { file ->
                                     val tl = file.translate
                                     if (!tl.isNullOrEmpty()) {
@@ -348,7 +391,12 @@ class ExtractStr2L10nAction : DumbAwareAction() {
                         } else {
                             WriteCommandAction.runWriteCommandAction(project) {
                                 insertElement(project, stringsPsiFile, xmlTag, key!!, originalText)
-                                replaceElement(selectedFile, selectedElement, templateEntryList, key)
+                                replaceElement(
+                                    selectedFile,
+                                    selectedElement,
+                                    templateEntryList,
+                                    key
+                                )
                                 otherStringsFile.forEach { file ->
                                     val tl = file.translate
                                     if (!tl.isNullOrEmpty()) {
@@ -361,7 +409,6 @@ class ExtractStr2L10nAction : DumbAwareAction() {
                                         )
                                     }
                                 }
-                                progressIndicator.isIndeterminate = false
                                 progressIndicator.fraction = 1.0
                             }
                         }
@@ -662,7 +709,16 @@ class InputKeyDialog(
             }
         }
 
-        return builder.addComponentFillVertically(JPanel(), 0).panel
+        val rootPanel: JPanel = if (otherStringsFile.size > 5) {
+            builder.addComponentFillVertically(JPanel(), 0).panel
+        } else {
+            builder.panel
+        }
+
+        val jb = JBScrollPane(rootPanel)
+        jb.preferredSize = JBUI.size(300, 40 + 60 * (otherStringsFile.size).coerceAtMost(5))
+        jb.border = BorderFactory.createEmptyBorder()
+        return jb
     }
 
     fun getValue(): String {

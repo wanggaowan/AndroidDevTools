@@ -25,7 +25,7 @@ intellij {
     plugins.set(listOf("java","org.jetbrains.android","Kotlin"))
 
     // 是否开启增量构建
-    instrumentCode.set(true)
+    instrumentCode.set(false)
 }
 
 tasks {
