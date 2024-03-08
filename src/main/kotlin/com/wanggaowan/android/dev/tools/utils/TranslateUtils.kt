@@ -3,6 +3,7 @@ package com.wanggaowan.android.dev.tools.utils
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.project.Project
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
@@ -29,6 +30,7 @@ object TranslateUtils {
     suspend fun translate(
         text: String,
         targetLanguage: String,
+        project: Project? = null
     ): String? {
         val uuid = UUID.randomUUID().toString()
         val dateformat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
@@ -59,14 +61,16 @@ object TranslateUtils {
         val signature = encodeURI(Base64.getEncoder().encodeToString(signatureMethod(stringToSign)))
         queryString += "&Signature=$signature"
         try {
+            val url = "https://mt.cn-hangzhou.aliyuncs.com/?$queryString"
             val response = HttpClient(CIO) {
                 engine {
-                    requestTimeout = 5000
+                    requestTimeout = 10000
                     endpoint {
-                        connectTimeout = 5000
+                        connectTimeout = 10000
                     }
                 }
-            }.get("https://mt.cn-hangzhou.aliyuncs.com/?$queryString")
+            }.get(url)
+
             val body = response.bodyAsText()
             if (body.isEmpty()) {
                 return null
@@ -76,14 +80,14 @@ object TranslateUtils {
             val jsonObject = Gson().fromJson(body, JsonObject::class.java)
             val code = jsonObject.getAsJsonPrimitive("Code").asString
             if (code != "200") {
-                LOG.error("阿里翻译失败：$body")
+                LOG.error("阿里翻译失败,响应结果：$body，翻译失败文本：$text")
                 return null
             }
 
             val data = jsonObject.getAsJsonObject("Data") ?: return null
             return data.getAsJsonPrimitive("Translated").asString
         } catch (e: Exception) {
-            LOG.error("阿里翻译失败：${e.message}")
+            LOG.error("阿里翻译失败，异常内容：${e.message}，翻译失败文本：$text")
             return null
         }
     }

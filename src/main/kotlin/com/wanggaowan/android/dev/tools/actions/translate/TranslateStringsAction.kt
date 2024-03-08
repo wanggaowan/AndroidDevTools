@@ -93,22 +93,29 @@ class TranslateStringsAction : DumbAwareAction() {
 
         val project = event.project ?: return
         if (templateFile == null) {
-            NotificationUtils.showBalloonMsg(project, "请提供模版文件values/strings.xml", NotificationType.WARNING)
+            NotificationUtils.showBalloonMsg(
+                project,
+                "请提供模版文件values/strings.xml",
+                NotificationType.WARNING
+            )
             return
         }
 
         val tempStringsPsiFile = templateFile!!.toPsiFile(project) ?: return
         val stringsPsiFile = file!!.toPsiFile(project) ?: return
-        val tempXmlTags = tempStringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()?.subTags
-            ?: return
+        val tempXmlTags =
+            tempStringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()?.subTags
+                ?: return
         val xmlTag = stringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()
         val xmlTags = xmlTag?.subTags ?: arrayOf()
-        ProgressUtils.runBackground(project,"Translate",true) {progressIndicator->
+        ProgressUtils.runBackground(project, "Translate", true) { progressIndicator ->
             progressIndicator.isIndeterminate = false
             ApplicationManager.getApplication().runReadAction {
                 val needTranslateMap = mutableMapOf<String, String?>()
                 tempXmlTags.forEach {
-                    val find = xmlTags.find { tag -> it.getAttributeValue("name") == tag.getAttributeValue("name") }
+                    val find = xmlTags.find { tag ->
+                        it.getAttributeValue("name") == tag.getAttributeValue("name")
+                    }
                     if (find == null) {
                         val name = it.getAttributeValue("name")
                         if (name != null) {
@@ -133,45 +140,68 @@ class TranslateStringsAction : DumbAwareAction() {
                             return@launch2
                         }
 
-                        var translateStr = TranslateUtils.translate(value!!, targetLanguage)
+                        progressIndicator.text = "${count.toInt()} / $total Translating: $key"
+
+                        val time = System.currentTimeMillis()
+                        var translateStr =
+                            if (value.isNullOrEmpty()) value else TranslateUtils.translate(
+                                value,
+                                targetLanguage,
+                                project
+                            )
                         progressIndicator.fraction = count / total * 0.94 + 0.05
                         if (translateStr == null) {
                             existTranslateFailed = true
-                            needTranslateMap[key] = null
                         } else {
-                            translateStr = TranslateUtils.fixTranslateError(translateStr, targetLanguage)
-                            needTranslateMap[key] = translateStr ?: ""
+                            translateStr =
+                                TranslateUtils.fixTranslateError(translateStr, targetLanguage)
+                            if (translateStr != null) {
+                                writeResult(project, stringsPsiFile, xmlTag, key, translateStr)
+                            } else {
+                                existTranslateFailed = true
+                            }
+                        }
+                        val useTime =System.currentTimeMillis() - time
+                        if (useTime < 400) {
+                            // 防止请求太快，导致触发阿里翻译QPS限制，反而翻译越来越慢
+                            try {
+                                Thread.sleep(400 - useTime)
+                            } catch (e:Exception) {
+                                //
+                            }
                         }
                         count++
                     }
-
-                    CoroutineScope(Dispatchers.Main).launch {
-                        WriteCommandAction.runWriteCommandAction(project) {
-                            if (progressIndicator.isCanceled) {
-                                return@runWriteCommandAction
-                            }
-
-                            val document = stringsPsiFile.viewProvider.document
-                            if (document != null) {
-                                PsiDocumentManager.getInstance(project).commitDocument(document)
-                            }
-                            needTranslateMap.forEach { (key, value) ->
-                                if (value != null) {
-                                    insertElement(project, stringsPsiFile, xmlTag, key, value)
-                                }
-                            }
-                            if (document != null) {
-                                PsiDocumentManager.getInstance(project).commitDocument(document)
-                            } else {
-                                PsiDocumentManager.getInstance(project).commitAllDocuments()
-                            }
-                            if (existTranslateFailed) {
-                                NotificationUtils.showBalloonMsg(project, "部分内容未翻译或插入成功，请重试", NotificationType.WARNING)
-                            }
-                            progressIndicator.fraction = 1.0
-                        }
+                    progressIndicator.fraction = 1.0
+                    if (existTranslateFailed) {
+                        NotificationUtils.showBalloonMsg(
+                            project,
+                            "部分内容未翻译或插入成功，请重试",
+                            NotificationType.WARNING
+                        )
                     }
                 }
+            }
+        }
+    }
+
+    private fun writeResult(
+        project: Project,
+        stringsPsiFile: PsiFile,
+        xmlTag: XmlTag?,
+        key: String,
+        value: String
+    ) {
+        WriteCommandAction.runWriteCommandAction(project) {
+            val document = stringsPsiFile.viewProvider.document
+            if (document != null) {
+                PsiDocumentManager.getInstance(project).commitDocument(document)
+            }
+            insertElement(project, stringsPsiFile, xmlTag, key, value)
+            if (document != null) {
+                PsiDocumentManager.getInstance(project).commitDocument(document)
+            } else {
+                PsiDocumentManager.getInstance(project).commitAllDocuments()
             }
         }
     }
