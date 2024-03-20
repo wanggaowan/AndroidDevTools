@@ -146,27 +146,27 @@ class TranslateStringsAction : DumbAwareAction() {
                         var translateStr =
                             if (value.isNullOrEmpty()) value else TranslateUtils.translate(
                                 value,
-                                targetLanguage,
-                                project
+                                targetLanguage
                             )
                         progressIndicator.fraction = count / total * 0.94 + 0.05
                         if (translateStr == null) {
                             existTranslateFailed = true
                         } else {
+                            // 默认字符里面含有占位符
                             translateStr =
-                                TranslateUtils.fixTranslateError(translateStr, targetLanguage)
+                                TranslateUtils.fixTranslateError(translateStr, targetLanguage, 5)
                             if (translateStr != null) {
                                 writeResult(project, stringsPsiFile, xmlTag, key, translateStr)
                             } else {
                                 existTranslateFailed = true
                             }
                         }
-                        val useTime =System.currentTimeMillis() - time
+                        val useTime = System.currentTimeMillis() - time
                         if (useTime < 400) {
                             // 防止请求太快，导致触发阿里翻译QPS限制，反而翻译越来越慢
                             try {
                                 Thread.sleep(400 - useTime)
-                            } catch (e:Exception) {
+                            } catch (e: Exception) {
                                 //
                             }
                         }

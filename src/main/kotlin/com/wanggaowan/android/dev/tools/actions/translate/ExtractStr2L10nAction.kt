@@ -332,7 +332,7 @@ class ExtractStr2L10nAction : DumbAwareAction() {
                                 file.translate = TranslateUtils.fixTranslateError(
                                     file.translate,
                                     file.targetLanguage,
-                                    templateEntryList
+                                    templateEntryList.size
                                 )
                             }
                         }

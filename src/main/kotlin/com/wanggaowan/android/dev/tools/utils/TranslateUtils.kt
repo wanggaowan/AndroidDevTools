@@ -3,12 +3,10 @@ package com.wanggaowan.android.dev.tools.utils
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.intellij.openapi.diagnostic.logger
-import com.intellij.openapi.project.Project
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
-import org.jetbrains.kotlin.psi.KtStringTemplateEntry
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -30,7 +28,6 @@ object TranslateUtils {
     suspend fun translate(
         text: String,
         targetLanguage: String,
-        project: Project? = null
     ): String? {
         val uuid = UUID.randomUUID().toString()
         val dateformat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
@@ -194,8 +191,12 @@ object TranslateUtils {
     }
 
     /// 修复翻译错误，如占位符为大写，\n，%s翻译后被分开成 \ n,% s等错误
-    fun fixTranslateError(translate: String?, targetLanguage: String, templateEntryList: List<KtStringTemplateEntry>? = null): String? {
-        var translateStr = fixTranslatePlaceHolderStr(translate, templateEntryList)
+    fun fixTranslateError(
+        translate: String?,
+        targetLanguage: String,
+        placeHolderCount: Int? = null
+    ): String? {
+        var translateStr = fixTranslatePlaceHolderStr(translate, placeHolderCount)
         translateStr = fixNewLineFormatError(translateStr)
         if (targetLanguage == "en") {
             translateStr = fixEnTranslatePlaceHolderStr(translateStr)
@@ -205,7 +206,10 @@ object TranslateUtils {
     }
 
     /// 修复因翻译，导致占位符被翻译为大写的问题
-    private fun fixTranslatePlaceHolderStr(translate: String?, templateEntryList: List<KtStringTemplateEntry>? = null): String? {
+    private fun fixTranslatePlaceHolderStr(
+        translate: String?,
+        placeHolderCount: Int? = null
+    ): String? {
         if (translate.isNullOrEmpty()) {
             return null
         }
@@ -214,7 +218,7 @@ object TranslateUtils {
         val placeHolders = listOf("s", "d", "f", "l")
         placeHolders.forEach {
             // 如果templateEntryList有值，说明是kotlin语言，此时取最大占位符数量
-            for (i in 0 until max(6, (templateEntryList?.size ?: 0) + 1)) {
+            for (i in 0 until max(6, (placeHolderCount ?: 0) + 1)) {
                 // 去除翻译后占位符之间的空格
                 translateText = if (i == 0) {
                     // 正则：%\s+s
@@ -257,8 +261,10 @@ object TranslateUtils {
         if (index > 0) {
             val chart = translateText.substring(index - 1, index)
             if (chart.matches(Regex("[a-zA-Z0-9]"))) {
-                translateText = "${translateText.substring(0, index)} ${translateText.substring(index)}"
-                translateText = insertWhiteSpace(index + placeHolder.length + 1, translateText, placeHolder)
+                translateText =
+                    "${translateText.substring(0, index)} ${translateText.substring(index)}"
+                translateText =
+                    insertWhiteSpace(index + placeHolder.length + 1, translateText, placeHolder)
             }
         }
         return translateText
@@ -274,7 +280,12 @@ object TranslateUtils {
         return fixFormatError(regex, text, "\\n")
     }
 
-    private tailrec fun fixFormatError(regex: Regex, text: String, placeHolder: String, oldRange: IntRange? = null): String {
+    private tailrec fun fixFormatError(
+        regex: Regex,
+        text: String,
+        placeHolder: String,
+        oldRange: IntRange? = null
+    ): String {
         if (text.isEmpty()) {
             return text
         }
@@ -283,6 +294,11 @@ object TranslateUtils {
             return text
         }
 
-        return fixFormatError(regex, text.replaceRange(matchResult.range, placeHolder), placeHolder, matchResult.range)
+        return fixFormatError(
+            regex,
+            text.replaceRange(matchResult.range, placeHolder),
+            placeHolder,
+            matchResult.range
+        )
     }
 }
