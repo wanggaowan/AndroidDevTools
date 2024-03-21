@@ -113,12 +113,11 @@ object TranslateUtils {
             return ""
         }
 
-        val sb = StringBuilder()
         Arrays.sort(keys)
-
 
         var key: String?
         var value: String?
+        val sb = StringBuilder()
         for (i in keys.indices) {
             key = keys[i]
             sb.append(encodeURI(key))
@@ -222,10 +221,12 @@ object TranslateUtils {
                 // 去除翻译后占位符之间的空格
                 translateText = if (i == 0) {
                     // 正则：%\s+s
-                    fixFormatError(Regex("%\\s+$it"), translateText, "%$it")
+                    val value = fixFormatError(Regex("%\\s+$it"), translateText, "%$it")
+                    fixFormatError(Regex("%\\s+${it.uppercase()}"), value, "%$it")
                 } else {
                     // 正则：%\s*1\s*\$\s*s
-                    fixFormatError(Regex("%\\s*$i\\s*\\\$\\s*$it"), translateText, "%$i\$$it")
+                    val value = fixFormatError(Regex("%\\s*$i\\s*\\\$\\s*$it"), translateText, "%$i\$$it")
+                    fixFormatError(Regex("%\\s*$i\\s*\\\$\\s*${it.uppercase()}"), value, "%$i\$$it")
                 }
             }
         }

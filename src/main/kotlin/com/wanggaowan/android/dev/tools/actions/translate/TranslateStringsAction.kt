@@ -142,7 +142,6 @@ class TranslateStringsAction : DumbAwareAction() {
 
                         progressIndicator.text = "${count.toInt()} / $total Translating: $key"
 
-                        val time = System.currentTimeMillis()
                         var translateStr =
                             if (value.isNullOrEmpty()) value else TranslateUtils.translate(
                                 value,
@@ -159,15 +158,6 @@ class TranslateStringsAction : DumbAwareAction() {
                                 writeResult(project, stringsPsiFile, xmlTag, key, translateStr)
                             } else {
                                 existTranslateFailed = true
-                            }
-                        }
-                        val useTime = System.currentTimeMillis() - time
-                        if (useTime < 400) {
-                            // 防止请求太快，导致触发阿里翻译QPS限制，反而翻译越来越慢
-                            try {
-                                Thread.sleep(400 - useTime)
-                            } catch (e: Exception) {
-                                //
                             }
                         }
                         count++
