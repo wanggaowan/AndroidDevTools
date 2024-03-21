@@ -5,13 +5,16 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.MessageType
 import com.intellij.openapi.util.TextRange
-import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.impl.source.codeStyle.CodeStyleManagerImpl
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.ui.EditorTextField
+import com.intellij.util.ui.JBUI
+import com.wanggaowan.android.dev.tools.ui.language.JsonLanguageTextField
 import com.wanggaowan.android.dev.tools.utils.ProgressUtils
 import com.wanggaowan.android.dev.tools.utils.PropertiesSerializeUtils
 import com.wanggaowan.android.dev.tools.utils.StringUtils
@@ -19,8 +22,11 @@ import com.wanggaowan.android.dev.tools.utils.Toast
 import org.jetbrains.kotlin.idea.kdoc.KDocElementFactory
 import org.jetbrains.kotlin.kdoc.psi.api.KDoc
 import org.jetbrains.kotlin.psi.*
+import java.awt.BorderLayout
 import java.awt.CardLayout
-import java.awt.Point
+import java.awt.GridBagConstraints
+import java.awt.GridBagLayout
+import java.awt.event.ActionEvent
 import javax.swing.*
 
 /**
@@ -30,16 +36,19 @@ class JsonToKotlinDialog(
     private val project: Project,
     private val psiFile: PsiFile,
     private val selectElement: PsiElement?
-) : JDialog() {
+) : DialogWrapper(project, false) {
 
-    private lateinit var mRootPanel: JPanel
-    private lateinit var mJPCardRoot: JPanel
-    private lateinit var mCreateObjectName: JTextField
-    private lateinit var mEtJsonContent: JTextArea
-    private lateinit var mBtOk: JButton
-    private lateinit var mBtCancel: JButton
-    private lateinit var mObjSuffix: JTextField
-    private lateinit var mBtConfig: JButton
+    private val mCreateObjectName: ExtensionTextField =
+        ExtensionTextField("", placeHolder = "请输入类名称")
+    private val mObjSuffix: ExtensionTextField = ExtensionTextField("", placeHolder = "类名后缀")
+    private val mEtJsonContent: EditorTextField = JsonLanguageTextField(project)
+    private val mJPCardRoot: JPanel = JPanel(CardLayout())
+    private val mActionConfig = ConfigAction {
+        mCardShow = CARD_CONFIG
+        it.isEnabled = false
+        cancelAction.isEnabled = false
+        (mJPCardRoot.layout as CardLayout).show(mJPCardRoot, mCardShow)
+    }
 
     // 插入位置根节点
     private var mRootElement: KtClass? = null
@@ -47,13 +56,61 @@ class JsonToKotlinDialog(
     private var mCardShow = CARD_INPUT
 
     init {
-        contentPane = mRootPanel
+        val headRootPanel = JPanel(GridBagLayout())
+
+        val cc = GridBagConstraints()
+        cc.fill = GridBagConstraints.HORIZONTAL
+        cc.weightx = 0.0
+        cc.gridx = 0
+
+        val label = JLabel("类名称")
+        label.border = BorderFactory.createEmptyBorder(0, 0, 0, JBUI.scale(6))
+        headRootPanel.add(label, cc)
+
+        cc.weightx = 10.0
+        cc.gridx = 1
+        mCreateObjectName.minimumSize = JBUI.size(100, 30)
+        headRootPanel.add(mCreateObjectName, cc)
+
+        cc.weightx = 0.0
+        cc.gridx = 2
+        val emptyLabel = JLabel()
+        emptyLabel.border = BorderFactory.createEmptyBorder(0, 2, 0, JBUI.scale(2))
+        headRootPanel.add(emptyLabel, cc)
+
+        cc.weightx = 1.0
+        cc.gridx = 3
+        mObjSuffix.text = "Entity"
+        mObjSuffix.minimumSize = JBUI.size(100, 30)
+        headRootPanel.add(mObjSuffix, cc)
+
+        val rootPanel = JPanel(BorderLayout())
+        rootPanel.add(headRootPanel, BorderLayout.NORTH)
+
+        val contentRootPanel = JPanel(BorderLayout())
+        contentRootPanel.add(JLabel("JSON"), BorderLayout.NORTH)
+        mEtJsonContent.isEnabled = true
+        contentRootPanel.add(mEtJsonContent, BorderLayout.CENTER)
+        rootPanel.add(contentRootPanel, BorderLayout.CENTER)
+        mJPCardRoot.add(rootPanel, CARD_INPUT)
+        mJPCardRoot.preferredSize = JBUI.size(1000, 500)
+
         initSetRoot()
-        getRootPane().defaultButton = mBtOk
-        this.isAlwaysOnTop = true
-        pack()
         initData()
-        initEvent()
+
+        init()
+    }
+
+    override fun createCenterPanel(): JComponent {
+        return mJPCardRoot
+    }
+
+    override fun getPreferredFocusedComponent(): JComponent {
+        return if (mRootElement == null) mCreateObjectName else mEtJsonContent
+    }
+
+    override fun createLeftSideActions(): Array<Action> {
+        return arrayOf(mActionConfig)
     }
 
     private fun initSetRoot() {
@@ -98,21 +155,9 @@ class JsonToKotlinDialog(
         mJPCardRoot.add(box, CARD_CONFIG)
     }
 
-    override fun setVisible(b: Boolean) {
-        if (b) {
-            val window = WindowManager.getInstance().suggestParentWindow(project)
-            window?.let {
-                location = Point(it.x + (it.width - this.width) / 2, it.y + (it.height - this.height) / 2)
-            }
-        }
-        super.setVisible(b)
-    }
-
     private fun initData() {
-        mEtJsonContent.requestFocus()
         if (selectElement == null) {
             mCreateObjectName.isEnabled = true
-            mCreateObjectName.requestFocus()
             return
         }
 
@@ -120,7 +165,6 @@ class JsonToKotlinDialog(
             mCreateObjectName.isEnabled = false
             mRootElement = selectElement
             mCreateObjectName.text = selectElement.name
-            mEtJsonContent.requestFocus()
             return
         }
 
@@ -129,74 +173,59 @@ class JsonToKotlinDialog(
             mRootElement = element
             mCreateObjectName.isEnabled = false
             mCreateObjectName.text = element.name
-            mEtJsonContent.requestFocus()
             return
         }
 
         mCreateObjectName.isEditable = true
-        mCreateObjectName.requestFocus()
     }
 
-    private fun initEvent() {
-        mBtConfig.addActionListener {
-            mCardShow = CARD_CONFIG
-            mBtConfig.isVisible = false
-            mBtCancel.isVisible = false
+    override fun doOKAction() {
+        if (mCardShow == CARD_CONFIG) {
+            mCardShow = CARD_INPUT
+            mActionConfig.isEnabled = true
+            cancelAction.isEnabled = true
             (mJPCardRoot.layout as CardLayout).show(mJPCardRoot, mCardShow)
+            return
         }
 
-        mBtCancel.addActionListener {
-            isVisible = false
+        val objName = mCreateObjectName.text
+        if (objName.isNullOrEmpty()) {
+            Toast.show(mCreateObjectName, MessageType.ERROR, "请输入要创建的对象名称")
+            return
         }
 
-        mBtOk.addActionListener {
-            if (mCardShow == CARD_CONFIG) {
-                mCardShow = CARD_INPUT
-                mBtConfig.isVisible = true
-                mBtCancel.isVisible = true
-                (mJPCardRoot.layout as CardLayout).show(mJPCardRoot, mCardShow)
-                return@addActionListener
-            }
+        val jsonStr = mEtJsonContent.text
+        if (jsonStr.isEmpty()) {
+            Toast.show(mEtJsonContent, MessageType.ERROR, "请输入JSON内容")
+            return
+        }
 
-            val objName = mCreateObjectName.text
-            if (objName.isNullOrEmpty()) {
-                Toast.show(mCreateObjectName, MessageType.ERROR, "请输入要创建的对象名称")
-                return@addActionListener
-            }
+        val jsonObject: JsonObject?
+        try {
+            jsonObject = Gson().fromJson(jsonStr, JsonObject::class.java)
+            super.doOKAction()
+        } catch (e: Exception) {
+            Toast.show(mEtJsonContent, MessageType.ERROR, "JSON数据格式不正确")
+            return
+        }
 
-            val jsonStr = mEtJsonContent.text
-            if (jsonStr.isNullOrEmpty()) {
-                Toast.show(mEtJsonContent, MessageType.ERROR, "请输入JSON内容")
-                return@addActionListener
-            }
-
-            val jsonObject: JsonObject?
-            try {
-                jsonObject = Gson().fromJson(jsonStr, JsonObject::class.java)
-                isVisible = false
-            } catch (e: Exception) {
-                Toast.show(mEtJsonContent, MessageType.ERROR, "JSON数据格式不正确")
-                return@addActionListener
-            }
-
-            ProgressUtils.runBackground(project,"GsonFormat") {progressIndicator->
-                progressIndicator.isIndeterminate = true
-                WriteCommandAction.runWriteCommandAction(project) {
-                    val factory = KtPsiFactory(project)
-                    val docFactory = KDocElementFactory(project)
-                    if (mRootElement == null) {
-                        val element = createClass(factory, docFactory, objName, null)
-                        val lastChild = psiFile.lastChild
-                        createJavaObjectOnJsonObject(factory, docFactory, jsonObject, element)
-                        psiFile.addAfter(element, lastChild)
-                    } else {
-                        createJavaObjectOnJsonObject(factory, docFactory, jsonObject, mRootElement!!)
-                    }
-                    reformatFile(project, psiFile)
+        ProgressUtils.runBackground(project, "GsonFormat") { progressIndicator ->
+            progressIndicator.isIndeterminate = true
+            WriteCommandAction.runWriteCommandAction(project) {
+                val factory = KtPsiFactory(project)
+                val docFactory = KDocElementFactory(project)
+                if (mRootElement == null) {
+                    val element = createClass(factory, docFactory, objName, null)
+                    val lastChild = psiFile.lastChild
+                    createJavaObjectOnJsonObject(factory, docFactory, jsonObject, element)
+                    psiFile.addAfter(element, lastChild)
+                } else {
+                    createJavaObjectOnJsonObject(factory, docFactory, jsonObject, mRootElement!!)
                 }
-                progressIndicator.isIndeterminate = false
-                progressIndicator.fraction = 1.0
+                reformatFile(project, psiFile)
             }
+            progressIndicator.isIndeterminate = false
+            progressIndicator.fraction = 1.0
         }
     }
 
@@ -250,7 +279,15 @@ class JsonToKotlinDialog(
                 val className = StringUtils.toHumpFormat(key)
 
                 val suffix = mObjSuffix.text.trim()
-                addFieldForObjType(factory, docFactory, key, className + suffix, false, parentElement, doc)
+                addFieldForObjType(
+                    factory,
+                    docFactory,
+                    key,
+                    className + suffix,
+                    false,
+                    parentElement,
+                    doc
+                )
 
                 val element = createClass(factory, docFactory, className, doc)
                 createJavaObjectOnJsonObject(factory, docFactory, obj as JsonObject, element)
@@ -275,7 +312,15 @@ class JsonToKotlinDialog(
 
                 obj.asJsonArray.let { jsonArray ->
                     if (jsonArray.size() == 0) {
-                        addFieldForObjType(factory, docFactory, key, "any", true, parentElement, doc)
+                        addFieldForObjType(
+                            factory,
+                            docFactory,
+                            key,
+                            "any",
+                            true,
+                            parentElement,
+                            doc
+                        )
                         return@let
                     }
 
@@ -293,7 +338,12 @@ class JsonToKotlinDialog(
                             if (!isCreateObjChild) {
                                 isCreateObjChild = true
                                 val element = createClass(factory, docFactory, className, doc)
-                                createJavaObjectOnJsonObject(factory, docFactory, child as JsonObject, element)
+                                createJavaObjectOnJsonObject(
+                                    factory,
+                                    docFactory,
+                                    child as JsonObject,
+                                    element
+                                )
                                 if (KTGsonFormatConfig.isCreateNestClass(project)) {
                                     val body = parentElement.getOrCreateBody()
                                     body.addBefore(element, body.lastChild)
@@ -325,22 +375,54 @@ class JsonToKotlinDialog(
                     }
 
                     if (!typeSame) {
-                        addFieldForObjType(factory, docFactory, key, "any", true, parentElement, doc)
+                        addFieldForObjType(
+                            factory,
+                            docFactory,
+                            key,
+                            "any",
+                            true,
+                            parentElement,
+                            doc
+                        )
                         return@let
                     }
 
                     when (type) {
                         null, "null" -> {
-                            addFieldForObjType(factory, docFactory, key, "any", true, parentElement, doc)
+                            addFieldForObjType(
+                                factory,
+                                docFactory,
+                                key,
+                                "any",
+                                true,
+                                parentElement,
+                                doc
+                            )
                         }
 
                         "JsonObject" -> {
                             val suffix = mObjSuffix.text.trim()
-                            addFieldForObjType(factory, docFactory, key, className + suffix, true, parentElement, doc)
+                            addFieldForObjType(
+                                factory,
+                                docFactory,
+                                key,
+                                className + suffix,
+                                true,
+                                parentElement,
+                                doc
+                            )
                         }
 
                         else -> {
-                            addFieldForObjType(factory, docFactory, key, type!!, true, parentElement, doc)
+                            addFieldForObjType(
+                                factory,
+                                docFactory,
+                                key,
+                                type!!,
+                                true,
+                                parentElement,
+                                doc
+                            )
                         }
                     }
                 }
@@ -472,12 +554,22 @@ class JsonToKotlinDialog(
      * @param psiFile 需要格式化文件
      */
     private fun reformatFile(project: Project, psiFile: PsiFile) {
-        CodeStyleManagerImpl(project).reformatText(psiFile, mutableListOf(TextRange(0, psiFile.textLength)))
+        CodeStyleManagerImpl(project).reformatText(
+            psiFile,
+            mutableListOf(TextRange(0, psiFile.textLength))
+        )
     }
 
     companion object {
         private const val CARD_INPUT = "input"
         private const val CARD_CONFIG = "config"
+    }
+}
+
+class ConfigAction(private val myHelpActionPerformed: ((ConfigAction) -> Unit)?) :
+    AbstractAction("Config") {
+    override fun actionPerformed(e: ActionEvent) {
+        myHelpActionPerformed?.invoke(this)
     }
 }
 
@@ -558,3 +650,5 @@ internal object KTGsonFormatConfig {
         }
     }
 }
+
+

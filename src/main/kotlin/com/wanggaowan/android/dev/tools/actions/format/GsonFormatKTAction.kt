@@ -31,8 +31,7 @@ class GsonFormatKTAction: AnAction() {
             }
         }
 
-        val dialog = JsonToKotlinDialog(project, psiFile, psiElement)
-        dialog.isVisible = true
+        JsonToKotlinDialog(project, psiFile, psiElement).show()
     }
 
     override fun update(e: AnActionEvent) {

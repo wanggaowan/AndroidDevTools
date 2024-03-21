@@ -5,19 +5,27 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.MessageType
 import com.intellij.openapi.util.TextRange
-import com.intellij.openapi.wm.WindowManager
 import com.intellij.pom.java.LanguageLevel
 import com.intellij.psi.*
 import com.intellij.psi.codeStyle.JavaCodeStyleManager
 import com.intellij.psi.impl.source.codeStyle.CodeStyleManagerImpl
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.ui.EditorTextField
+import com.intellij.util.ui.JBUI
+import com.wanggaowan.android.dev.tools.ui.language.JsonLanguageTextField
 import com.wanggaowan.android.dev.tools.utils.ProgressUtils
 import com.wanggaowan.android.dev.tools.utils.StringUtils
 import com.wanggaowan.android.dev.tools.utils.Toast
-import java.awt.Point
-import javax.swing.*
+import java.awt.BorderLayout
+import java.awt.GridBagConstraints
+import java.awt.GridBagLayout
+import javax.swing.BorderFactory
+import javax.swing.JComponent
+import javax.swing.JLabel
+import javax.swing.JPanel
 
 /**
  * json文件转JAVA对象
@@ -26,43 +34,89 @@ class JsonToJavaDialog(
     private val project: Project,
     private val psiFile: PsiFile,
     private val selectElement: PsiElement?
-) : JDialog() {
+) : DialogWrapper(project, false) {
 
-    private lateinit var mRootPanel: JPanel
-    private lateinit var mCreateObjectName: JTextField
-    private lateinit var mEtJsonContent: JTextArea
-    private lateinit var mBtOk: JButton
-    private lateinit var mBtCancel: JButton
-    private lateinit var mCbCreateDoc: JCheckBox
-    private lateinit var mObjSuffix: JTextField
+    private val mRootPanel: JPanel = JPanel(BorderLayout())
+    private val mCreateObjectName: ExtensionTextField =
+        ExtensionTextField("", placeHolder = "请输入类名称")
+    private val mObjSuffix: ExtensionTextField = ExtensionTextField("", placeHolder = "类名后缀")
+    private val mEtJsonContent: EditorTextField = JsonLanguageTextField(project)
 
     // 插入位置根节点
     private var mRootElement: PsiElement? = null
+    private var mCreateDoc = false
 
     init {
-        contentPane = mRootPanel
-        getRootPane().defaultButton = mBtOk
-        this.isAlwaysOnTop = true
-        pack()
+        val headRootPanel = JPanel(GridBagLayout())
+
+        val cc = GridBagConstraints()
+        cc.fill = GridBagConstraints.HORIZONTAL
+        cc.weightx = 0.0
+        cc.gridx = 0
+
+        val label = JLabel("类名称")
+        label.border = BorderFactory.createEmptyBorder(0, 0, 0, JBUI.scale(6))
+        headRootPanel.add(label, cc)
+
+        cc.weightx = 10.0
+        cc.gridx = 1
+        mCreateObjectName.minimumSize = JBUI.size(100, 30)
+        headRootPanel.add(mCreateObjectName, cc)
+
+        cc.weightx = 0.0
+        cc.gridx = 2
+        val emptyLabel = JLabel()
+        emptyLabel.border = BorderFactory.createEmptyBorder(0, 2, 0, JBUI.scale(2))
+        headRootPanel.add(emptyLabel, cc)
+
+        cc.weightx = 1.0
+        cc.gridx = 3
+        mObjSuffix.text = "Entity"
+        mObjSuffix.minimumSize = JBUI.size(100, 30)
+        headRootPanel.add(mObjSuffix, cc)
+        mRootPanel.add(headRootPanel, BorderLayout.NORTH)
+
+        val contentRootPanel = JPanel(BorderLayout())
+        contentRootPanel.add(JLabel("JSON"), BorderLayout.NORTH)
+        mEtJsonContent.isEnabled = true
+        contentRootPanel.add(mEtJsonContent, BorderLayout.CENTER)
+        mRootPanel.add(contentRootPanel, BorderLayout.CENTER)
+
+        mRootPanel.preferredSize = JBUI.size(1000, 500)
+
+        val doNotAskOption: com.intellij.openapi.ui.DoNotAskOption =
+            object : com.intellij.openapi.ui.DoNotAskOption.Adapter() {
+                override fun getDoNotShowMessage(): String {
+                    return "json value 生成注释文档"
+                }
+
+                override fun shouldSaveOptionsOnCancel(): Boolean {
+                    return true
+                }
+
+                override fun rememberChoice(isSelected: Boolean, exitCode: Int) {
+                    if (exitCode == 0 && isSelected) {
+                        mCreateDoc = true
+                    }
+                }
+            }
+        setDoNotAskOption(doNotAskOption)
         initData()
-        initEvent()
+
+        init()
     }
 
-    override fun setVisible(b: Boolean) {
-        if (b) {
-            val window = WindowManager.getInstance().suggestParentWindow(project)
-            window?.let {
-                location = Point(it.x + (it.width - this.width) / 2, it.y + (it.height - this.height) / 2)
-            }
-        }
-        super.setVisible(b)
+    override fun createCenterPanel(): JComponent {
+        return mRootPanel
+    }
+
+    override fun getPreferredFocusedComponent(): JComponent {
+        return if (mRootElement == null) mCreateObjectName else mEtJsonContent
     }
 
     private fun initData() {
-        mEtJsonContent.requestFocus()
         if (selectElement == null) {
             mCreateObjectName.isEnabled = true
-            mCreateObjectName.requestFocus()
             return
         }
 
@@ -70,7 +124,6 @@ class JsonToJavaDialog(
             mCreateObjectName.isEnabled = false
             mRootElement = selectElement
             mCreateObjectName.text = selectElement.name
-            mEtJsonContent.requestFocus()
             return
         }
 
@@ -79,58 +132,50 @@ class JsonToJavaDialog(
             mRootElement = element
             mCreateObjectName.isEnabled = false
             mCreateObjectName.text = element.name
-            mEtJsonContent.requestFocus()
             return
         }
 
         mCreateObjectName.isEditable = true
-        mCreateObjectName.requestFocus()
     }
 
-    private fun initEvent() {
-        mBtCancel.addActionListener {
-            isVisible = false
+    override fun doOKAction() {
+        val objName = mCreateObjectName.text
+        if (objName.isNullOrEmpty()) {
+            Toast.show(mCreateObjectName, MessageType.ERROR, "请输入要创建的对象名称")
+            return
         }
 
-        mBtOk.addActionListener {
-            val objName = mCreateObjectName.text
-            if (objName.isNullOrEmpty()) {
-                Toast.show(mCreateObjectName, MessageType.ERROR, "请输入要创建的对象名称")
-                return@addActionListener
-            }
+        val jsonStr = mEtJsonContent.text
+        if (jsonStr.isEmpty()) {
+            Toast.show(mEtJsonContent, MessageType.ERROR, "请输入JSON内容")
+            return
+        }
 
-            val jsonStr = mEtJsonContent.text
-            if (jsonStr.isNullOrEmpty()) {
-                Toast.show(mEtJsonContent, MessageType.ERROR, "请输入JSON内容")
-                return@addActionListener
-            }
+        val jsonObject: JsonObject?
+        try {
+            jsonObject = Gson().fromJson(jsonStr, JsonObject::class.java)
+            super.doOKAction()
+        } catch (e: Exception) {
+            Toast.show(mEtJsonContent, MessageType.ERROR, "JSON数据格式不正确")
+            return
+        }
 
-            val jsonObject: JsonObject?
-            try {
-                jsonObject = Gson().fromJson(jsonStr, JsonObject::class.java)
-                isVisible = false
-            } catch (e: Exception) {
-                Toast.show(mEtJsonContent, MessageType.ERROR, "JSON数据格式不正确")
-                return@addActionListener
-            }
-
-            ProgressUtils.runBackground(project,"GsonFormat") {progressIndicator->
-                progressIndicator.isIndeterminate = true
-                WriteCommandAction.runWriteCommandAction(project) {
-                    val factory = JavaPsiFacade.getElementFactory(project)
-                    if (mRootElement == null) {
-                        val element = createClass(factory, objName)
-                        val lastChild = psiFile.lastChild
-                        createJavaObjectOnJsonObject(factory, jsonObject, element)
-                        psiFile.addAfter(element, lastChild)
-                    } else {
-                        createJavaObjectOnJsonObject(factory, jsonObject, mRootElement!!)
-                    }
-                    reformatFile(project, psiFile)
+        ProgressUtils.runBackground(project, "GsonFormat") { progressIndicator ->
+            progressIndicator.isIndeterminate = true
+            WriteCommandAction.runWriteCommandAction(project) {
+                val factory = JavaPsiFacade.getElementFactory(project)
+                if (mRootElement == null) {
+                    val element = createClass(factory, objName)
+                    val lastChild = psiFile.lastChild
+                    createJavaObjectOnJsonObject(factory, jsonObject, element)
+                    psiFile.addAfter(element, lastChild)
+                } else {
+                    createJavaObjectOnJsonObject(factory, jsonObject, mRootElement!!)
                 }
-                progressIndicator.isIndeterminate = false
-                progressIndicator.fraction = 1.0
+                reformatFile(project, psiFile)
             }
+            progressIndicator.isIndeterminate = false
+            progressIndicator.fraction = 1.0
         }
     }
 
@@ -154,8 +199,9 @@ class JsonToJavaDialog(
         doc: String?
     ): PsiElement {
         val suffix = mObjSuffix.text.trim()
-        val classText = if (doc.isNullOrEmpty() || !mCbCreateDoc.isSelected) "public static class ${name}${suffix} {}"
-        else "/**\n* $doc\n*/public static class ${name}${suffix} {}"
+        val classText =
+            if (doc.isNullOrEmpty() || !mCreateDoc) "public static class ${name}${suffix} {}"
+            else "/**\n* $doc\n*/public static class ${name}${suffix} {}"
         return elementFactory.createClassFromText(classText, null).innerClasses[0]
     }
 
@@ -262,7 +308,14 @@ class JsonToJavaDialog(
 
                         "JsonObject" -> {
                             val suffix = mObjSuffix.text.trim()
-                            addFieldForObjType(factory, key, className + suffix, true, parentElement, doc)
+                            addFieldForObjType(
+                                factory,
+                                key,
+                                className + suffix,
+                                true,
+                                parentElement,
+                                doc
+                            )
                         }
 
                         else -> {
@@ -304,17 +357,20 @@ class JsonToJavaDialog(
                     )
                 }(boolean $key) {\n this.$key = $key; }\n"
             } else {
-                getMethod = "public boolean is${StringUtils.capitalName(key)}() {\n return $key; }\n"
-                setMethod = "public void set${StringUtils.capitalName(key)}(boolean $key) {\n this.$key = $key; }\n"
+                getMethod =
+                    "public boolean is${StringUtils.capitalName(key)}() {\n return $key; }\n"
+                setMethod =
+                    "public void set${StringUtils.capitalName(key)}(boolean $key) {\n this.$key = $key; }\n"
             }
         } else {
             getMethod = "public $type get${StringUtils.capitalName(key)}() {\n return $key; }\n"
-            setMethod = "public void set${StringUtils.capitalName(key)}($type $key) {\n this.$key = $key; }\n"
+            setMethod =
+                "public void set${StringUtils.capitalName(key)}($type $key) {\n this.$key = $key; }\n"
         }
 
         val content = "private $type $key;\n"
         val psiField = elementFactory.createFieldFromText(content, parentElement)
-        if (mCbCreateDoc.isSelected && jsonElement != null) {
+        if (mCreateDoc && jsonElement != null) {
             // 不能把doc加到element，虽然此doc文档是属于element的，因为加到element下，doc结束符号'*/'与属性之间不会换行
             // 即使在'*/'后加换行'*/\n'也无效
             val doc = elementFactory.createDocCommentFromText(
@@ -348,9 +404,10 @@ class JsonToJavaDialog(
         val content = "private $type $key;\n"
 
         val getMethod = "public $type get${StringUtils.capitalName(key)}() {\n return $key; }\n"
-        val setMethod = "public void set${StringUtils.capitalName(key)}($type $key) {\n this.$key = $key; }\n"
+        val setMethod =
+            "public void set${StringUtils.capitalName(key)}($type $key) {\n this.$key = $key; }\n"
 
-        if (mCbCreateDoc.isSelected && !doc.isNullOrEmpty()) {
+        if (mCreateDoc && !doc.isNullOrEmpty()) {
             // 不能把doc加到element，虽然此doc文档是属于element的，因为加到element下，doc结束符号'*/'与属性之间不会换行
             // 即使在'*/'后加换行'*/\n'也无效
             val docElement = factory.createDocCommentFromText("/**\n* $doc\n*/", parentElement)
@@ -422,6 +479,9 @@ class JsonToJavaDialog(
         val styleManager: JavaCodeStyleManager = JavaCodeStyleManager.getInstance(project)
         styleManager.optimizeImports(psiFile)
         styleManager.shortenClassReferences(psiFile)
-        CodeStyleManagerImpl(project).reformatText(psiFile, mutableListOf(TextRange(0, psiFile.textLength)))
+        CodeStyleManagerImpl(project).reformatText(
+            psiFile,
+            mutableListOf(TextRange(0, psiFile.textLength))
+        )
     }
 }

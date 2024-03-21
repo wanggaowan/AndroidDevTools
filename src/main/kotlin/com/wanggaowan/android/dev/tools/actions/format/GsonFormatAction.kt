@@ -31,8 +31,7 @@ class GsonFormatAction: AnAction() {
             }
         }
 
-        val dialog = JsonToJavaDialog(project, psiFile, psiElement)
-        dialog.isVisible = true
+        JsonToJavaDialog(project, psiFile, psiElement).show()
     }
 
     override fun update(e: AnActionEvent) {

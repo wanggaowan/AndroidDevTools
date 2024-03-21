@@ -21,7 +21,10 @@
     <ul>
       <li>修复导入图片时，如果非app模块则无法正常识别压缩包，且导入默认目录为空Bug</li>
       <li>修复导入图片弹窗在高版本IDE无法展示Bug</li>
+      <li>修复json to java 弹窗在高版本IDE无法展示Bug</li>
+      <li>修复json to kotlin 弹窗在高版本IDE无法展示Bug</li>
       <li>提取多语言，增加翻译进度展示，优化翻译语言过多时，重命名弹窗高度过大且缩小高度时会导致输入Key的输入框不可见问题</li>
+      <li>根据模版strings.xml翻译其它语言strings.xml时，翻译模式改为逐条翻译插入，而不是全部翻译完成后再插入</li>
     </ul>
 
     <p>1.9</p>
