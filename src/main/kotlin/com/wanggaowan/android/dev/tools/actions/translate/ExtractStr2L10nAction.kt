@@ -92,10 +92,9 @@ class ExtractStr2L10nAction : DumbAwareAction() {
             return
         }
 
-        if (!psiFile.name.endsWith(".xml") && !psiFile.name.endsWith(".java") && !psiFile.name.endsWith(
-                ".kt"
-            )
-        ) {
+        if (!psiFile.name.endsWith(".xml")
+            && !psiFile.name.endsWith(".java")
+            && !psiFile.name.endsWith(".kt")) {
             e.presentation.isVisible = false
             return
         }
@@ -111,6 +110,14 @@ class ExtractStr2L10nAction : DumbAwareAction() {
             if (parent == null) {
                 e.presentation.isVisible = false
                 return
+            }
+
+
+            if (psiFile.parent?.name?.startsWith("values") == true) {
+                if (psiFile.parent?.parent?.name == "res") {
+                    e.presentation.isVisible = false
+                    return
+                }
             }
 
             fileType = 0

@@ -17,6 +17,12 @@
   ]]></description>
 
     <change-notes><![CDATA[
+    <p>2.1</p>
+    <ul>
+      <li>增加一键在所有strings文件中删除指定多语言项功能</li>
+      <li>修复根据模版翻译strings.xml翻译其它语言时，如果其它语言没有根节点<resources/>，则会多次插入<resources/>Bug</li>
+    </ul>
+
     <p>2.0</p>
     <ul>
       <li>修复导入图片时，如果非app模块则无法正常识别压缩包，且导入默认目录为空Bug</li>
@@ -143,6 +149,10 @@
             <action id="AndroidDevTools.ExtractStr2L10n"
                 class="com.wanggaowan.android.dev.tools.actions.translate.ExtractStr2L10nAction"
                 text="提取为多语言" />
+            <action
+                id="AndroidDevTools.DeleteStringsSameKeyElementAction"
+                class="com.wanggaowan.android.dev.tools.actions.DeleteStringsSameKeyElementAction"
+                text="在所有strings文件中删除此项"/>
             <separator />
             <add-to-group group-id="EditorPopupMenu" anchor="first" />
         </group>

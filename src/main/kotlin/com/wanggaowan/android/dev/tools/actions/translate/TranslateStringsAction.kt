@@ -106,8 +106,9 @@ class TranslateStringsAction : DumbAwareAction() {
         val tempXmlTags =
             tempStringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()?.subTags
                 ?: return
-        val xmlTag = stringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()
-        val xmlTags = xmlTag?.subTags ?: arrayOf()
+        val xmlTags =
+            stringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()?.subTags
+                ?: arrayOf()
         ProgressUtils.runBackground(project, "Translate", true) { progressIndicator ->
             progressIndicator.isIndeterminate = false
             ApplicationManager.getApplication().runReadAction {
@@ -155,7 +156,7 @@ class TranslateStringsAction : DumbAwareAction() {
                             translateStr =
                                 TranslateUtils.fixTranslateError(translateStr, targetLanguage, 5)
                             if (translateStr != null) {
-                                writeResult(project, stringsPsiFile, xmlTag, key, translateStr)
+                                writeResult(project, stringsPsiFile, key, translateStr)
                             } else {
                                 existTranslateFailed = true
                             }
@@ -178,7 +179,6 @@ class TranslateStringsAction : DumbAwareAction() {
     private fun writeResult(
         project: Project,
         stringsPsiFile: PsiFile,
-        xmlTag: XmlTag?,
         key: String,
         value: String
     ) {
@@ -187,7 +187,7 @@ class TranslateStringsAction : DumbAwareAction() {
             if (document != null) {
                 PsiDocumentManager.getInstance(project).commitDocument(document)
             }
-            insertElement(project, stringsPsiFile, xmlTag, key, value)
+            insertElement(project, stringsPsiFile, key, value)
             if (document != null) {
                 PsiDocumentManager.getInstance(project).commitDocument(document)
             } else {
@@ -199,11 +199,11 @@ class TranslateStringsAction : DumbAwareAction() {
     private fun insertElement(
         project: Project,
         stringsPsiFile: PsiFile,
-        xmlTag: XmlTag?,
         key: String,
         value: String,
     ) {
 
+        val xmlTag = stringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()
         if (xmlTag != null && xmlTag.subTags.isNotEmpty()) {
             val psiFile = PsiFileFactory.getInstance(project).createFileFromText(
                 "dummy.${XmlFileType.INSTANCE.defaultExtension}",
