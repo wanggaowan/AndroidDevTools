@@ -210,7 +210,7 @@ object ImportSameImageResUtils {
                 if (!exist) {
                     try {
                         folders.add(importToFolder.createChildDirectory(null, it))
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         return@runWriteCommandAction
                     }
                 }
@@ -244,7 +244,7 @@ object ImportSameImageResUtils {
                             }
 
                             child.copy(project, folder, renameEntity?.newName ?: child.name)
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             // 可能是导入文件已经存在
                         }
                     }

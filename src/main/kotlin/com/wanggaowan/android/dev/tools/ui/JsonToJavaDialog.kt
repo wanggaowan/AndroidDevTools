@@ -10,8 +10,8 @@ import com.intellij.openapi.ui.MessageType
 import com.intellij.openapi.util.TextRange
 import com.intellij.pom.java.LanguageLevel
 import com.intellij.psi.*
+import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.codeStyle.JavaCodeStyleManager
-import com.intellij.psi.impl.source.codeStyle.CodeStyleManagerImpl
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.EditorTextField
 import com.intellij.util.ui.JBUI
@@ -155,7 +155,7 @@ class JsonToJavaDialog(
         try {
             jsonObject = Gson().fromJson(jsonStr, JsonObject::class.java)
             super.doOKAction()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Toast.show(mEtJsonContent, MessageType.ERROR, "JSON数据格式不正确")
             return
         }
@@ -319,7 +319,7 @@ class JsonToJavaDialog(
                         }
 
                         else -> {
-                            addFieldForObjType(factory, key, type!!, true, parentElement, doc)
+                            addFieldForObjType(factory, key, type, true, parentElement, doc)
                         }
                     }
                 }
@@ -479,7 +479,7 @@ class JsonToJavaDialog(
         val styleManager: JavaCodeStyleManager = JavaCodeStyleManager.getInstance(project)
         styleManager.optimizeImports(psiFile)
         styleManager.shortenClassReferences(psiFile)
-        CodeStyleManagerImpl(project).reformatText(
+        CodeStyleManager.getInstance(project).reformatText(
             psiFile,
             mutableListOf(TextRange(0, psiFile.textLength))
         )

@@ -79,10 +79,10 @@ class CopyMultiSameNameFileAction : AnAction() {
                             drawableFolders = mutableListOf()
                             it.parent.parent.children?.forEach { child ->
                                 if (child.name.contains("drawable")) {
-                                    drawableFolders?.add(child.name)
+                                    drawableFolders.add(child.name)
                                     try {
                                         drawableCopyFolders.add(copyCacheFolder.createChildDirectory(null, child.name))
-                                    } catch (e: Exception) {
+                                    } catch (_: Exception) {
                                         return@runWriteCommandAction
                                     }
                                 }
@@ -93,10 +93,10 @@ class CopyMultiSameNameFileAction : AnAction() {
                             mipmapFolders = mutableListOf()
                             it.parent.parent.children?.forEach { child ->
                                 if (child.name.contains("mipmap")) {
-                                    mipmapFolders?.add(child.name)
+                                    mipmapFolders.add(child.name)
                                     try {
                                         mipmapCopyFolders.add(copyCacheFolder.createChildDirectory(null, child.name))
-                                    } catch (e: Exception) {
+                                    } catch (_: Exception) {
                                         return@runWriteCommandAction
                                     }
                                 }

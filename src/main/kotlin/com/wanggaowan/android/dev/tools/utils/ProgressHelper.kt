@@ -35,7 +35,7 @@ class ProgressHelper(val myProject: Project) {
 
                                 try {
                                     (myTasks as Object).wait()
-                                } catch (e: InterruptedException) {
+                                } catch (_: InterruptedException) {
                                     // ignore
                                 }
                                 myTask = null

@@ -23,6 +23,9 @@ import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
+private var files: List<VirtualFile>? = null
+private var importToFile: VirtualFile? = null
+
 /**
  * 监听导入不同分辨率相同图片资源动作，满足条件则触发导入
  *
@@ -101,11 +104,13 @@ class ImportSameImageListener : MoveHandlerDelegate(), PasteProvider {
                 continue
             }
 
-            val isDirectory = if (isFile) (file as File).isDirectory else (file as PsiFileSystemItem).isDirectory
+            val isDirectory =
+                if (isFile) (file as File).isDirectory else (file as PsiFileSystemItem).isDirectory
             var isValidZipFile = false
             if (!isDirectory) {
                 if (fileName.lowercase().endsWith(".zip")) {
-                    val path = if (isFile) (file as File).path else (file as PsiFileSystemItem).virtualFile.path
+                    val path =
+                        if (isFile) (file as File).path else (file as PsiFileSystemItem).virtualFile.path
                     val zipFile = ZipFile(path)
                     val entries = zipFile.entries()
                     isValidZipFile = zipFile.size() > 0
@@ -213,10 +218,4 @@ class ImportSameImageListener : MoveHandlerDelegate(), PasteProvider {
         files = null
     }
     // </editor-fold>
-
-    companion object {
-        private var files: List<VirtualFile>? = null
-        private var importToFile: VirtualFile? = null
-    }
-
 }

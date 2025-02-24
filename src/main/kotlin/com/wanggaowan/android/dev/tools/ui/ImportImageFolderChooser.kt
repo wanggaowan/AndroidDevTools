@@ -107,13 +107,13 @@ class ImportImageFolderChooser(
      */
     private fun createFileChoosePanel(): JComponent {
         val model = DefaultTreeModel(FileTreeNode(project.rootDir))
-        myTree = JTree(model)
+        myTree = com.intellij.ui.treeStructure.Tree(model)
         myTree.selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
 
         val render = DefaultTreeCellRenderer()
         render.leafIcon = render.defaultClosedIcon
-        render.backgroundNonSelectionColor = Color(0x00000000, true)
-        render.backgroundSelectionColor = Color(0x00000000, true)
+        render.backgroundNonSelectionColor = JBColor("", Color(0x00000000, true))
+        render.backgroundSelectionColor = JBColor("", Color(0x00000000, true))
         render.borderSelectionColor = null
         myTree.cellRenderer = render
 

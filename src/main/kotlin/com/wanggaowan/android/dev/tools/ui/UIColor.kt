@@ -57,5 +57,5 @@ object UIColor {
      */
     val BG_COLOR = JBColor(Color.WHITE, Color(60, 63, 65))
 
-    val TRANSPARENT = Color(0, 0, 0, 0)
+    val TRANSPARENT = JBColor("transparent", Color(0, 0, 0, 0))
 }

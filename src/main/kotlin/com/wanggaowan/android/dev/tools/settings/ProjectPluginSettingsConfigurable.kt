@@ -23,11 +23,7 @@ class ProjectPluginSettingsConfigurable(val project: Project) : Configurable {
     }
 
     override fun isModified(): Boolean {
-        if (isExtractStr2L10nModified()) {
-            return true
-        }
-
-        return false
+        return isExtractStr2L10nModified()
     }
 
     private fun isExtractStr2L10nModified(): Boolean {
@@ -49,11 +45,11 @@ class ProjectPluginSettingsConfigurable(val project: Project) : Configurable {
     private fun applyExtractStr2L10n() {
         PluginSettings.setExtractStr2L10nShowRenameDialog(
             getProjectWrapper(),
-            mSettingsView?.extractStr2L10nShowRenameDialog?.isSelected ?: true
+            mSettingsView?.extractStr2L10nShowRenameDialog?.isSelected != false
         )
         PluginSettings.setExtractStr2L10nTranslateOther(
             getProjectWrapper(),
-            mSettingsView?.extractStr2L10nTranslateOther?.isSelected ?: true
+            mSettingsView?.extractStr2L10nTranslateOther?.isSelected != false
         )
     }
 

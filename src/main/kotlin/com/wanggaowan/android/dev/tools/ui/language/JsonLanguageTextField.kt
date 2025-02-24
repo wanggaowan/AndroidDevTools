@@ -35,7 +35,7 @@ class JsonLanguageTextField(project: Project) :
                         return@invokeLater
                     }
                     CodeFoldingManager.getInstance(this@JsonLanguageTextField.project).updateFoldRegions(editorEx)
-                }, ModalityState.NON_MODAL)
+                }, ModalityState.nonModal())
             }
         })
 

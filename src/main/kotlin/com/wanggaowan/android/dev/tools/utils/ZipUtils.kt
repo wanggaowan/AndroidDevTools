@@ -52,7 +52,7 @@ object ZipUtil {
                 outputStream.closeQuietly()
             }
             return File(parentDir)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return null
         } finally {
             inputStream?.closeQuietly()
@@ -101,7 +101,7 @@ object ZipUtil {
                 zipOutputStream.closeEntry()
             }
             return zipFile
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return null
         } finally {
             inputStream?.close()
@@ -127,7 +127,7 @@ object ZipUtil {
 fun Closeable.closeQuietly() {
     try {
         close()
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         //
     }
 }

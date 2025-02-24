@@ -39,10 +39,15 @@ object Toast {
     @JvmStatic
     fun show(project: Project, type: MessageType, msg: String) {
         val statusBar = WindowManager.getInstance().getStatusBar(project)
+        val component = statusBar.component
+        if (component == null) {
+            return
+        }
+
         JBPopupFactory.getInstance()
             .createHtmlTextBalloonBuilder(msg, type, null)
             .setFadeoutTime(7500)
             .createBalloon()
-            .show(RelativePoint.getCenterOf(statusBar.component), Balloon.Position.atRight)
+            .show(RelativePoint.getCenterOf(component), Balloon.Position.atRight)
     }
 }

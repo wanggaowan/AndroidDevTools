@@ -141,7 +141,7 @@ object TranslateUtils {
                 .replace("+", "%20")
                 .replace("%7E", "~")
                 .replace("*", "%2A")
-        } catch (var2: UnsupportedEncodingException) {
+        } catch (_: UnsupportedEncodingException) {
             content
         }
     }
@@ -225,8 +225,8 @@ object TranslateUtils {
                     fixFormatError(Regex("%\\s+${it.uppercase()}"), value, "%$it")
                 } else {
                     // 正则：%\s*1\s*\$\s*s
-                    val value = fixFormatError(Regex("%\\s*$i\\s*\\\$\\s*$it"), translateText, "%$i\$$it")
-                    fixFormatError(Regex("%\\s*$i\\s*\\\$\\s*${it.uppercase()}"), value, "%$i\$$it")
+                    val value = fixFormatError(Regex("%\\s*$i\\s*\\$\\s*$it"), translateText, "%$i$$it")
+                    fixFormatError(Regex("%\\s*$i\\s*\\$\\s*${it.uppercase()}"), value, "%$i$$it")
                 }
             }
         }
@@ -247,7 +247,7 @@ object TranslateUtils {
                 val placeHolder = if (i == 0) {
                     "%$it"
                 } else {
-                    "%$i\$$it"
+                    "%$i$$it"
                 }
                 translateText = insertWhiteSpace(0, translateText, placeHolder)
             }

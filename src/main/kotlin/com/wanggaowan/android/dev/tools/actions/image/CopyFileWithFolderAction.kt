@@ -100,7 +100,7 @@ class CopyFileWithFolderAction : AnAction() {
             val folders: List<VirtualFile> = getDistinctFolder(mapFiles).map {
                 try {
                     copyCacheFolder.createChildDirectory(null, it)
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     return@runWriteCommandAction
                 }
             }

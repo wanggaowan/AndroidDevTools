@@ -1,99 +1,9 @@
-<idea-plugin>
+<idea-plugin xmlns:xi="http://www.w3.org/2001/XInclude">
     <id>com.wanggaowan.android.dev.tools</id>
     <name>AndroidDevTools</name>
     <vendor email="wanggaowan@163.com" url="https://github.com/wanggaowan/AndroidDevTools" />
 
-    <description><![CDATA[
-    <h2>提供Android开发所需工具</h2>
-    <ol>
-      <li>复制不同分辨率下的相同文件</li>
-      <li>带目录复制文件</li>
-      <li>导入不同分辨率下的相同图片(支持粘贴、拖拽导入)，支持直接导入压缩包</li>
-      <li>json转java实体</li>
-      <li>json转kotlin实体</li>
-      <li>提取多语言</li>
-      <li>根据模版strings.xml翻译其它语言strings.xml文件功能</li>
-    </ol>
-  ]]></description>
-
-    <change-notes><![CDATA[
-    <p>2.1</p>
-    <ul>
-      <li>增加一键在所有strings文件中删除指定多语言项功能</li>
-      <li>修复根据模版翻译strings.xml翻译其它语言时，如果其它语言没有根节点<resources/>，则会多次插入<resources/>Bug</li>
-    </ul>
-
-    <p>2.0</p>
-    <ul>
-      <li>修复导入图片时，如果非app模块则无法正常识别压缩包，且导入默认目录为空Bug</li>
-      <li>修复导入图片弹窗在高版本IDE无法展示Bug</li>
-      <li>修复json to java 弹窗在高版本IDE无法展示Bug</li>
-      <li>修复json to kotlin 弹窗在高版本IDE无法展示Bug</li>
-      <li>提取多语言，增加翻译进度展示，优化翻译语言过多时，重命名弹窗高度过大且缩小高度时会导致输入Key的输入框不可见问题</li>
-      <li>根据模版strings.xml翻译其它语言strings.xml时，翻译模式改为逐条翻译插入，而不是全部翻译完成后再插入</li>
-    </ul>
-
-    <p>1.9</p>
-    <ul>
-      <li>增加根据模版strings.xml翻译其它语言strings.xml文件功能</li>
-    </ul>
-
-    <p>1.8</p>
-    <ul>
-      <li>图片导入支持粘贴、拖拽导入</li>
-      <li>图片导入支持压缩包</li>
-      <li>增加提取多语言功能</li>
-    </ul>
-
-    <p>1.7</p>
-    <ul>
-      <li>图片多分辨率操作增加到编辑器tab页右键操作中</li>
-    </ul>
-
-    <p>1.6</p>
-    <ul>
-      <li>调整图片导入提示文本字体,通过UIUtil获取系统设置值</li>
-      <li>全局Action功能是否启用逻辑调整</li>
-      <li>最低支持版本调整为223(2022.3.1)</li>
-    </ul>
-
-    <p>1.5</p>
-    <ul>
-      <li>修复从外部初次导入图片不重名时，如果存在同名文件不提示Bug</li>
-      <li>从外部导入图片，如果存在同名文件，则展示同名文件ICON</li>
-      <li>从外部导入图片，如果存在同名文件，可选择跳过导入还是覆盖同名文件</li>
-    </ul>
-
-    <p>1.4</p>
-    <ul>
-      <li>增加json转java实体功能</li>
-      <li>增加json转kotlin实体功能</li>
-    </ul>
-
-    <p>1.3</p>
-    <ul>
-      <li>从外部导入图片模块：重命名界面增加导入图片预览功能</li>
-    </ul>
-
-    <p>1.2</p>
-    <ul>
-      <li>从外部导入图片模块：现在默认展示重命名界面，且重命名界面将提示是否已存在同名文件</li>
-      <li>从外部导入图片模块：支持同时导入多个目录下的文件</li>
-    </ul>
-
-    <p>1.1</p>
-    <ul>
-      <li>从外部导入图片模块：增加重命名导入文件及选择导入指定目录功能</li>
-    </ul>
-
-    <p>1.0</p>
-    <ul>
-      <li>新增复制不同分辨率下的相同文件功能</li>
-      <li>新增带目录复制文件功能</li>
-      <li>新增从外部导入不同分辨率下的相同图片功能</li>
-    </ul>
-    ]]>
-    </change-notes>
+    <xi:include href="plugin_desc.xml"/>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
@@ -136,16 +46,16 @@
 
         <action id="AndroidDevTools.GsonFormatAction"
             class="com.wanggaowan.android.dev.tools.actions.format.GsonFormatAction"
-            text="GsonFormat" description="json文件转化为java实体">
+            text="GsonFormat" description="Json文件转化为java实体">
             <add-to-group group-id="GenerateGroup" anchor="last" />
         </action>
         <action id="AndroidDevTools.GsonFormatKTAction"
             class="com.wanggaowan.android.dev.tools.actions.format.GsonFormatKTAction"
-            text="GsonFormatKT" description="json文件转化为kotlin实体">
+            text="GsonFormatKT" description="Json文件转化为kotlin实体">
             <add-to-group group-id="GenerateGroup" anchor="last" />
         </action>
 
-        <group>
+        <group id="AndroidDevTools.EditorPopupMenu">
             <action id="AndroidDevTools.ExtractStr2L10n"
                 class="com.wanggaowan.android.dev.tools.actions.translate.ExtractStr2L10nAction"
                 text="提取为多语言" />
@@ -169,6 +79,11 @@
         <listener class="com.wanggaowan.android.dev.tools.listener.MyProjectManagerListener"
             topic="com.intellij.openapi.project.ProjectManagerListener" />
     </projectListeners>
+
+    <!--兼容kotlin k2模式-->
+    <extensions defaultExtensionNs="org.jetbrains.kotlin">
+        <supportsKotlinPluginMode supportsK2="true" />
+    </extensions>
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup displayType="BALLOON" id="com.wanggaowan.android.dev.tools"

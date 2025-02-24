@@ -2,6 +2,7 @@ package com.wanggaowan.android.dev.tools.ui
 
 import com.intellij.ui.Gray
 import com.intellij.ui.JBColor
+import com.intellij.util.ui.JBUI
 import java.awt.*
 import java.io.File
 import java.io.FileInputStream
@@ -19,7 +20,7 @@ class ImageView(image: File? = null) : JPanel() {
     private var image: Image? = null
     private var imgWidth = 0
     private var imgHeight = 0
-    private var mBorderInsets = Insets(0, 0, 0, 0)
+    private var mBorderInsets = JBUI.emptyInsets()
 
     init {
         image?.let { setImage(it) }

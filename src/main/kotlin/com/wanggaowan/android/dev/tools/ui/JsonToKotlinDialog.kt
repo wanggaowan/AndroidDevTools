@@ -10,7 +10,7 @@ import com.intellij.openapi.ui.MessageType
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import com.intellij.psi.impl.source.codeStyle.CodeStyleManagerImpl
+import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.EditorTextField
 import com.intellij.util.ui.JBUI
@@ -204,7 +204,7 @@ class JsonToKotlinDialog(
         try {
             jsonObject = Gson().fromJson(jsonStr, JsonObject::class.java)
             super.doOKAction()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Toast.show(mEtJsonContent, MessageType.ERROR, "JSON数据格式不正确")
             return
         }
@@ -418,7 +418,7 @@ class JsonToKotlinDialog(
                                 factory,
                                 docFactory,
                                 key,
-                                type!!,
+                                type,
                                 true,
                                 parentElement,
                                 doc
@@ -554,7 +554,7 @@ class JsonToKotlinDialog(
      * @param psiFile 需要格式化文件
      */
     private fun reformatFile(project: Project, psiFile: PsiFile) {
-        CodeStyleManagerImpl(project).reformatText(
+        CodeStyleManager.getInstance(project).reformatText(
             psiFile,
             mutableListOf(TextRange(0, psiFile.textLength))
         )

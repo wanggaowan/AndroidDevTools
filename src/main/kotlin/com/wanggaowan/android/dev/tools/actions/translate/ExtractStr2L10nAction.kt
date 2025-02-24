@@ -291,7 +291,7 @@ class ExtractStr2L10nAction : DumbAwareAction() {
                 translateText = if (i == 0) {
                     translateText?.replace("%$it", "")
                 } else {
-                    translateText?.replace("%$i\$$it", "")
+                    translateText?.replace("%$i$$it", "")
                 }
             }
         }
