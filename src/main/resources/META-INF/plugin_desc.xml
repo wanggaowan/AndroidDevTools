@@ -13,6 +13,11 @@
   ]]></description>
 
     <change-notes><![CDATA[
+    <p>2.3</p>
+    <ul>
+      <li>最低兼容版本升级为243。适配新的网络请求框架, 之前使用的网络框架CIO客户端已在243.x及之后版本被移除</li>
+    </ul>
+
     <p>2.2</p>
     <ul>
       <li>最低兼容版本升级为242，项目build.gradle.kts采用2.x组织方式</li>

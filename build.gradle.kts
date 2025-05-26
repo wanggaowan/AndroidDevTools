@@ -24,10 +24,10 @@ intellijPlatform {
     pluginConfiguration {
         group = "com.wanggaowan.android.dev.tools"
         name = "AndroidDevTools"
-        version = "2.2"
+        version = "2.3"
 
         ideaVersion {
-            sinceBuild = "242"
+            sinceBuild = "243"
             untilBuild = "10000.*"
         }
     }
@@ -60,8 +60,8 @@ intellijPlatform {
     // }
 }
 
-// val ideaProduct = "android-studio"
-val ideaProduct = "IC"
+val ideaProduct = "android-studio"
+// val ideaProduct = "IC"
 val androidPluginVersion = "243.23654.189"
 
 dependencies {

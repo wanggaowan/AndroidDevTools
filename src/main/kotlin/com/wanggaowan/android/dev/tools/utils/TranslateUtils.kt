@@ -3,14 +3,15 @@ package com.wanggaowan.android.dev.tools.utils
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.intellij.openapi.diagnostic.logger
-import io.ktor.client.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import java.io.UnsupportedEncodingException
+import java.net.URI
 import java.net.URLEncoder
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
+import java.time.Duration
 import java.util.*
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -25,7 +26,17 @@ private val LOG = logger<TranslateUtils>()
  */
 object TranslateUtils {
 
-    suspend fun translate(
+    private var httpClient: HttpClient? = null
+    fun createHttpClient(): HttpClient {
+        if (httpClient == null) {
+            httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(10000))
+                .build()
+        }
+        return httpClient!!
+    }
+
+    fun translate(
         text: String,
         targetLanguage: String,
     ): String? {
@@ -58,17 +69,14 @@ object TranslateUtils {
         val signature = encodeURI(Base64.getEncoder().encodeToString(signatureMethod(stringToSign)))
         queryString += "&Signature=$signature"
         try {
-            val url = "https://mt.cn-hangzhou.aliyuncs.com/?$queryString"
-            val response = HttpClient(CIO) {
-                engine {
-                    requestTimeout = 10000
-                    endpoint {
-                        connectTimeout = 10000
-                    }
-                }
-            }.get(url)
+            val request: HttpRequest? = HttpRequest.newBuilder()
+                .uri(URI.create("https://mt.cn-hangzhou.aliyuncs.com/?$queryString"))
+                .GET()
+                .build()
 
-            val body = response.bodyAsText()
+            val response: HttpResponse<String?> =
+                createHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
+            val body = response.body() ?: ""
             if (body.isEmpty()) {
                 return null
             }
@@ -225,7 +233,8 @@ object TranslateUtils {
                     fixFormatError(Regex("%\\s+${it.uppercase()}"), value, "%$it")
                 } else {
                     // 正则：%\s*1\s*\$\s*s
-                    val value = fixFormatError(Regex("%\\s*$i\\s*\\$\\s*$it"), translateText, "%$i$$it")
+                    val value =
+                        fixFormatError(Regex("%\\s*$i\\s*\\$\\s*$it"), translateText, "%$i$$it")
                     fixFormatError(Regex("%\\s*$i\\s*\\$\\s*${it.uppercase()}"), value, "%$i$$it")
                 }
             }
