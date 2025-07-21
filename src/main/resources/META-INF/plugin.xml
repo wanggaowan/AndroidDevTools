@@ -29,8 +29,8 @@
         <group id="AndroidDevTools.ImageActionGroup"
             class="com.wanggaowan.android.dev.tools.actions.image.ImageActionGroup">
             <separator />
-            <reference id="AndroidDevTools.CopyMultiSameNameFileAction" />
-            <reference id="AndroidDevTools.CopyFileWithFolderAction" />
+            <reference ref="AndroidDevTools.CopyMultiSameNameFileAction" />
+            <reference ref="AndroidDevTools.CopyFileWithFolderAction" />
             <separator />
             <add-to-group group-id="CutCopyPasteGroup" anchor="last" />
         </group>
@@ -38,7 +38,7 @@
         <group id="AndroidDevTools.ImageOnEditorTabActionGroup"
             class="com.wanggaowan.android.dev.tools.actions.image.ImageOnEditorTabActionGroup">
             <separator />
-            <reference id="AndroidDevTools.CopyMultiSameNameFileAction" />
+            <reference ref="AndroidDevTools.CopyMultiSameNameFileAction" />
             <separator />
             <add-to-group group-id="EditorTabPopupMenu" anchor="before"
                 relative-to-action="SplitVertically" />

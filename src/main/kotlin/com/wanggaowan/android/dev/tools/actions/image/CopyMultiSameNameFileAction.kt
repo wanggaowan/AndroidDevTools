@@ -1,12 +1,13 @@
 package com.wanggaowan.android.dev.tools.actions.image
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
+import com.wanggaowan.android.dev.tools.Config
 import com.wanggaowan.android.dev.tools.actions.FileTransferable
 import com.wanggaowan.android.dev.tools.utils.TempFileUtils
 import com.wanggaowan.android.dev.tools.utils.ex.isAndroidProject
@@ -18,7 +19,7 @@ import java.io.File
  *
  * @author Created by wanggaowan on 2022/7/11 13:47
  */
-class CopyMultiSameNameFileAction : AnAction() {
+class CopyMultiSameNameFileAction : DumbAwareAction() {
 
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT
@@ -57,19 +58,18 @@ class CopyMultiSameNameFileAction : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
+        val selectFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY) ?: return
+        if (selectFiles.isEmpty()) {
+            return
+        }
+
         WriteCommandAction.runWriteCommandAction(project) {
             val copyCacheFolder = TempFileUtils.getCopyCacheFolder(project) ?: return@runWriteCommandAction
             copyCacheFolder.children?.forEach { it.delete(null) }
-            val selectFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY) ?: return@runWriteCommandAction
-            if (selectFiles.isEmpty()) {
-                return@runWriteCommandAction
-            }
-
             var drawableFolders: MutableList<String>? = null
             val drawableCopyFolders: MutableList<VirtualFile> = mutableListOf()
             var mipmapFolders: MutableList<String>? = null
             val mipmapCopyFolders: MutableList<VirtualFile> = mutableListOf()
-
             distinctFile(selectFiles).forEach {
                 if (!it.isDirectory) {
                     val isDrawable = it.path.contains("drawable")
@@ -82,7 +82,10 @@ class CopyMultiSameNameFileAction : AnAction() {
                                     drawableFolders.add(child.name)
                                     try {
                                         drawableCopyFolders.add(copyCacheFolder.createChildDirectory(null, child.name))
-                                    } catch (_: Exception) {
+                                    } catch (e: Exception) {
+                                        if (Config.DEV_MODE) {
+                                            e.printStackTrace()
+                                        }
                                         return@runWriteCommandAction
                                     }
                                 }
@@ -96,7 +99,10 @@ class CopyMultiSameNameFileAction : AnAction() {
                                     mipmapFolders.add(child.name)
                                     try {
                                         mipmapCopyFolders.add(copyCacheFolder.createChildDirectory(null, child.name))
-                                    } catch (_: Exception) {
+                                    } catch (e: Exception) {
+                                        if (Config.DEV_MODE) {
+                                            e.printStackTrace()
+                                        }
                                         return@runWriteCommandAction
                                     }
                                 }
@@ -120,6 +126,7 @@ class CopyMultiSameNameFileAction : AnAction() {
             }
             Toolkit.getDefaultToolkit().systemClipboard.setContents(FileTransferable(needCopyFile), null)
         }
+
     }
 
     /**
@@ -138,7 +145,8 @@ class CopyMultiSameNameFileAction : AnAction() {
         val fileName = file.name
         folderList.indices.forEach {
             val folderName = folderList[it]
-            val child = VirtualFileManager.getInstance().findFileByUrl("file://${parentPath}/$folderName/$fileName")
+            val child =
+                VirtualFileManager.getInstance().findFileByUrl("file://${parentPath}/$folderName/$fileName")
             child?.copy(null, copyFolderList[it], fileName)
         }
     }

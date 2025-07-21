@@ -5,6 +5,7 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.DumbAwareAction
@@ -223,9 +224,8 @@ class ExtractStr2L10nAction : DumbAwareAction() {
         }
         translateText = translateText.trim()
 
-
-        val existKey: String? = getExistKeyByValue(xmlTag, text)
         val otherStringsFile = mutableListOf<TranslateStringsFile>()
+        val existKey: String? = getExistKeyByValue(xmlTag, text)
         if (PluginSettings.getExtractStr2L10nTranslateOther(project)) {
             stringsPsiFile.virtualFile?.parent?.parent?.children?.let { files ->
                 for (file in files) {
@@ -356,7 +356,7 @@ class ExtractStr2L10nAction : DumbAwareAction() {
                         return@launch2
                     }
 
-                    CoroutineScope(Dispatchers.Main).launch {
+                    CoroutineScope(Dispatchers.EDT).launch {
                         var showRename = false
                         if (key == null || PluginSettings.getExtractStr2L10nShowRenameDialog(project)) {
                             showRename = true

@@ -1,9 +1,9 @@
 package com.wanggaowan.android.dev.tools.actions.format
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.wanggaowan.android.dev.tools.ui.JsonToKotlinDialog
@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.idea.KotlinLanguage
  *
  * @author Created by wanggaowan on 2022/9/19 10:44
  */
-class GsonFormatKTAction: AnAction() {
+class GsonFormatKTAction: DumbAwareAction() {
 
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT

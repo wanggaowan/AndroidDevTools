@@ -11,6 +11,7 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
+import com.wanggaowan.android.dev.tools.Config
 import com.wanggaowan.android.dev.tools.ui.ImportImageFolderChooser
 import com.wanggaowan.android.dev.tools.ui.RenameEntity
 import com.wanggaowan.android.dev.tools.utils.*
@@ -210,7 +211,10 @@ object ImportSameImageResUtils {
                 if (!exist) {
                     try {
                         folders.add(importToFolder.createChildDirectory(null, it))
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        if (Config.DEV_MODE) {
+                            e.printStackTrace()
+                        }
                         return@runWriteCommandAction
                     }
                 }
@@ -244,8 +248,11 @@ object ImportSameImageResUtils {
                             }
 
                             child.copy(project, folder, renameEntity?.newName ?: child.name)
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
                             // 可能是导入文件已经存在
+                            if (Config.DEV_MODE) {
+                                e.printStackTrace()
+                            }
                         }
                     }
                 }

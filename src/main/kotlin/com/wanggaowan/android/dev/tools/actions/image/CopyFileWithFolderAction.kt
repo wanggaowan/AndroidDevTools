@@ -1,12 +1,14 @@
 package com.wanggaowan.android.dev.tools.actions.image
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.vfs.VirtualFile
+import com.wanggaowan.android.dev.tools.Config
 import com.wanggaowan.android.dev.tools.actions.FileTransferable
+import com.wanggaowan.android.dev.tools.utils.ProgressUtils
 import com.wanggaowan.android.dev.tools.utils.TempFileUtils
 import com.wanggaowan.android.dev.tools.utils.ex.isAndroidProject
 import java.awt.Toolkit
@@ -17,7 +19,7 @@ import java.io.File
  *
  * @author Created by wanggaowan on 2022/7/12 08:40
  */
-class CopyFileWithFolderAction : AnAction() {
+class CopyFileWithFolderAction : DumbAwareAction() {
 
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT
@@ -56,14 +58,15 @@ class CopyFileWithFolderAction : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        WriteCommandAction.runWriteCommandAction(project) {
-            val copyCacheFolder = TempFileUtils.getCopyCacheFolder(project)?:return@runWriteCommandAction
-            copyCacheFolder.children?.forEach { it.delete(null) }
-            val selectFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY) ?: return@runWriteCommandAction
-            if (selectFiles.isEmpty()) {
-                return@runWriteCommandAction
-            }
+        val selectFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY) ?: return
+        if (selectFiles.isEmpty()) {
+            return
+        }
 
+        val copyCacheFolder = TempFileUtils.getCopyCacheFolder(project) ?: return
+
+        ProgressUtils.runBackground(project, "Copy File") { indicator ->
+            indicator.isIndeterminate = true
             val mapFiles = mutableListOf<SelectedFile>()
             for (file in selectFiles) {
                 if (file.isDirectory) {
@@ -94,33 +97,42 @@ class CopyFileWithFolderAction : AnAction() {
             }
 
             if (mapFiles.isEmpty()) {
-                return@runWriteCommandAction
+                indicator.fraction = 1.0
+                return@runBackground
             }
 
-            val folders: List<VirtualFile> = getDistinctFolder(mapFiles).map {
-                try {
-                    copyCacheFolder.createChildDirectory(null, it)
-                } catch (_: Exception) {
-                    return@runWriteCommandAction
-                }
-            }
-
-            mapFiles.forEach {
-                for (folder in folders) {
-                    if (folder.name == it.folder) {
-                        it.file.copy(null, folder, it.file.name)
-                        break
+            val dirs = getDistinctFolder(mapFiles)
+            WriteCommandAction.runWriteCommandAction(project) {
+                copyCacheFolder.children?.forEach { it.delete(null) }
+                val folders: List<VirtualFile> = dirs.map {
+                    try {
+                        copyCacheFolder.createChildDirectory(null, it)
+                    } catch (e: Exception) {
+                        if (Config.DEV_MODE) {
+                            e.printStackTrace()
+                        }
+                        return@runWriteCommandAction
                     }
                 }
-            }
 
-            val needCopyFile = mutableListOf<File>()
-            copyCacheFolder.children?.forEach {
-                if (!it.isDirectory || !it.children.isNullOrEmpty()) {
-                    needCopyFile.add(File(it.path))
+                mapFiles.forEach {
+                    for (folder in folders) {
+                        if (folder.name == it.folder) {
+                            it.file.copy(null, folder, it.file.name)
+                            break
+                        }
+                    }
                 }
+
+                val needCopyFile = mutableListOf<File>()
+                copyCacheFolder.children?.forEach {
+                    if (!it.isDirectory || !it.children.isNullOrEmpty()) {
+                        needCopyFile.add(File(it.path))
+                    }
+                }
+                Toolkit.getDefaultToolkit().systemClipboard.setContents(FileTransferable(needCopyFile), null)
+                indicator.fraction = 1.0
             }
-            Toolkit.getDefaultToolkit().systemClipboard.setContents(FileTransferable(needCopyFile), null)
         }
     }
 

@@ -5,7 +5,6 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
@@ -16,6 +15,7 @@ import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.xml.XmlDocument
 import com.intellij.psi.xml.XmlTag
 import com.intellij.util.LocalTimeCounter
+import com.intellij.util.application
 import com.wanggaowan.android.dev.tools.utils.NotificationUtils
 import com.wanggaowan.android.dev.tools.utils.ProgressUtils
 import com.wanggaowan.android.dev.tools.utils.TranslateUtils
@@ -109,10 +109,10 @@ class TranslateStringsAction : DumbAwareAction() {
         val xmlTags =
             stringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()?.subTags
                 ?: arrayOf()
-        ProgressUtils.runBackground(project, "Translate", true) { progressIndicator ->
+        ProgressUtils.runBackground(project, "Translate ${file!!.name}", true) { progressIndicator ->
             progressIndicator.isIndeterminate = false
-            ApplicationManager.getApplication().runReadAction {
-                val needTranslateMap = mutableMapOf<String, String?>()
+            val needTranslateMap = mutableMapOf<String, String?>()
+            application.invokeAndWait {
                 tempXmlTags.forEach {
                     val find = xmlTags.find { tag ->
                         it.getAttributeValue("name") == tag.getAttributeValue("name")
@@ -124,53 +124,53 @@ class TranslateStringsAction : DumbAwareAction() {
                         }
                     }
                 }
+            }
 
-                if (needTranslateMap.isEmpty()) {
-                    progressIndicator.fraction = 1.0
-                    return@runReadAction
-                }
+            if (needTranslateMap.isEmpty()) {
+                progressIndicator.fraction = 1.0
+                return@runBackground
+            }
 
-                progressIndicator.fraction = 0.05
-                var existTranslateFailed = false
-                CoroutineScope(Dispatchers.Default).launch launch2@{
-                    val targetLanguage = file!!.parent.name.substring("values-".length)
-                    var count = 1.0
-                    val total = needTranslateMap.size
-                    needTranslateMap.forEach { (key, value) ->
-                        if (progressIndicator.isCanceled) {
-                            return@launch2
-                        }
-
-                        progressIndicator.text = "${count.toInt()} / $total Translating: $key"
-
-                        var translateStr =
-                            if (value.isNullOrEmpty()) value else TranslateUtils.translate(
-                                value,
-                                targetLanguage
-                            )
-                        progressIndicator.fraction = count / total * 0.94 + 0.05
-                        if (translateStr == null) {
-                            existTranslateFailed = true
-                        } else {
-                            // 默认字符里面含有占位符
-                            translateStr =
-                                TranslateUtils.fixTranslateError(translateStr, targetLanguage, 5)
-                            if (translateStr != null) {
-                                writeResult(project, stringsPsiFile, key, translateStr)
-                            } else {
-                                existTranslateFailed = true
-                            }
-                        }
-                        count++
+            progressIndicator.fraction = 0.05
+            var existTranslateFailed = false
+            CoroutineScope(Dispatchers.Default).launch launch2@{
+                val targetLanguage = file!!.parent.name.substring("values-".length)
+                var count = 1.0
+                val total = needTranslateMap.size
+                needTranslateMap.forEach { (key, value) ->
+                    if (progressIndicator.isCanceled) {
+                        return@launch2
                     }
-                    progressIndicator.fraction = 1.0
-                    if (existTranslateFailed) {
-                        NotificationUtils.showBalloonMsg(
-                            project,
-                            "部分内容未翻译或插入成功，请重试",
-                            NotificationType.WARNING
+
+                    progressIndicator.text = "${count.toInt()} / $total Translating: $key"
+
+                    var translateStr =
+                        if (value.isNullOrEmpty()) value else TranslateUtils.translate(
+                            value,
+                            targetLanguage
                         )
+                    progressIndicator.fraction = count / total * 0.94 + 0.05
+                    if (translateStr == null) {
+                        existTranslateFailed = true
+                    } else {
+                        // 默认字符里面含有占位符
+                        translateStr =
+                            TranslateUtils.fixTranslateError(translateStr, targetLanguage, 5)
+                        if (translateStr != null) {
+                            writeResult(project, stringsPsiFile, key, translateStr)
+                        } else {
+                            existTranslateFailed = true
+                        }
                     }
+                    count++
+                }
+                progressIndicator.fraction = 1.0
+                if (existTranslateFailed) {
+                    NotificationUtils.showBalloonMsg(
+                        project,
+                        "部分内容未翻译或插入成功，请重试",
+                        NotificationType.WARNING
+                    )
                 }
             }
         }

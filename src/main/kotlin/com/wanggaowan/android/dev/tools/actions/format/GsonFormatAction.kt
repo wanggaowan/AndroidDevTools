@@ -2,9 +2,9 @@ package com.wanggaowan.android.dev.tools.actions.format
 
 import com.intellij.lang.java.JavaLanguage
 import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.wanggaowan.android.dev.tools.ui.JsonToJavaDialog
@@ -14,7 +14,7 @@ import com.wanggaowan.android.dev.tools.ui.JsonToJavaDialog
  *
  * @author Created by wanggaowan on 2022/9/19 10:44
  */
-class GsonFormatAction: AnAction() {
+class GsonFormatAction: DumbAwareAction() {
 
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT
