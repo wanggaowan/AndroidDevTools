@@ -31,10 +31,6 @@ class ProjectPluginSettingsConfigurable(val project: Project) : Configurable {
             return true
         }
 
-        if (PluginSettings.getExtractStr2L10nTranslateOther(getProjectWrapper()) != mSettingsView?.extractStr2L10nTranslateOther?.isSelected) {
-            return true
-        }
-
         return false
     }
 
@@ -47,10 +43,6 @@ class ProjectPluginSettingsConfigurable(val project: Project) : Configurable {
             getProjectWrapper(),
             mSettingsView?.extractStr2L10nShowRenameDialog?.isSelected != false
         )
-        PluginSettings.setExtractStr2L10nTranslateOther(
-            getProjectWrapper(),
-            mSettingsView?.extractStr2L10nTranslateOther?.isSelected != false
-        )
     }
 
     override fun reset() {
@@ -60,8 +52,6 @@ class ProjectPluginSettingsConfigurable(val project: Project) : Configurable {
     private fun resetExtractStr2L10n() {
         mSettingsView?.extractStr2L10nShowRenameDialog?.isSelected =
             PluginSettings.getExtractStr2L10nShowRenameDialog(getProjectWrapper())
-        mSettingsView?.extractStr2L10nTranslateOther?.isSelected =
-            PluginSettings.getExtractStr2L10nTranslateOther(getProjectWrapper())
     }
 
     override fun disposeUIResources() {

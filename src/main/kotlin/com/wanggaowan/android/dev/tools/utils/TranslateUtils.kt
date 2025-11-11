@@ -38,6 +38,7 @@ object TranslateUtils {
 
     fun translate(
         text: String,
+        sourceLanguage: String,
         targetLanguage: String,
     ): String? {
         val uuid = UUID.randomUUID().toString()
@@ -58,7 +59,7 @@ object TranslateUtils {
         queryMap["SignatureMethod"] = "HMAC-SHA1"
         queryMap["Status"] = "Available"
         queryMap["SignatureNonce"] = uuid
-        queryMap["SourceLanguage"] = "zh"
+        queryMap["SourceLanguage"] = sourceLanguage
         queryMap["SourceText"] = text
         queryMap["TargetLanguage"] = targetLanguage
         queryMap["Timestamp"] = time
@@ -85,14 +86,14 @@ object TranslateUtils {
             val jsonObject = Gson().fromJson(body, JsonObject::class.java)
             val code = jsonObject.getAsJsonPrimitive("Code").asString
             if (code != "200") {
-                LOG.error("阿里翻译失败,响应结果：$body，翻译失败文本：$text")
+                LOG.error("阿里翻译失败,响应结果：$body，模版语言：${sourceLanguage},目标语言：${targetLanguage}, 翻译失败文本：$text")
                 return null
             }
 
             val data = jsonObject.getAsJsonObject("Data") ?: return null
             return data.getAsJsonPrimitive("Translated").asString
         } catch (e: Exception) {
-            LOG.error("阿里翻译失败，异常内容：${e.message}，翻译失败文本：$text")
+            LOG.error("阿里翻译失败,异常内容：${e.message}，模版语言：${sourceLanguage},目标语言：${targetLanguage}, 翻译失败文本：$text")
             return null
         }
     }

@@ -103,12 +103,29 @@ class TranslateStringsAction : DumbAwareAction() {
 
         val tempStringsPsiFile = templateFile!!.toPsiFile(project) ?: return
         val stringsPsiFile = file!!.toPsiFile(project) ?: return
-        val tempXmlTags =
-            tempStringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()?.subTags
-                ?: return
-        val xmlTags =
-            stringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()?.subTags
-                ?: arrayOf()
+        val tempXml = tempStringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()
+        val tempXmlTags = tempXml?.subTags ?: return
+        var sourceLanguage: String = tempXml.getAttributeValue("locale-alias") ?: "zh"
+        if (sourceLanguage.isEmpty()) {
+            sourceLanguage = "zh"
+        }
+
+
+        val xmlTag = stringsPsiFile.getChildOfType<XmlDocument>()?.getChildOfType<XmlTag>()
+        var targetLanguage = xmlTag?.getAttributeValue("locale-alias")
+        if (targetLanguage.isNullOrEmpty()) {
+            targetLanguage = file!!.parent?.name?.substring("values-".length)
+        }
+        if (targetLanguage.isNullOrEmpty()) {
+            NotificationUtils.showBalloonMsg(
+                project,
+                "${file!!.name}所属文件夹名未指定语言或${file!!.name} resources节点属性未指定locale-alias，无法翻译，请配置属性后重试",
+                NotificationType.WARNING
+            )
+            return
+        }
+
+        val xmlTags = xmlTag?.subTags ?: arrayOf()
         ProgressUtils.runBackground(project, "Translate ${file!!.name}", true) { progressIndicator ->
             progressIndicator.isIndeterminate = false
             val needTranslateMap = mutableMapOf<String, String?>()
@@ -134,7 +151,6 @@ class TranslateStringsAction : DumbAwareAction() {
             progressIndicator.fraction = 0.05
             var existTranslateFailed = false
             CoroutineScope(Dispatchers.Default).launch launch2@{
-                val targetLanguage = file!!.parent.name.substring("values-".length)
                 var count = 1.0
                 val total = needTranslateMap.size
                 needTranslateMap.forEach { (key, value) ->
@@ -147,6 +163,7 @@ class TranslateStringsAction : DumbAwareAction() {
                     var translateStr =
                         if (value.isNullOrEmpty()) value else TranslateUtils.translate(
                             value,
+                            sourceLanguage,
                             targetLanguage
                         )
                     progressIndicator.fraction = count / total * 0.94 + 0.05

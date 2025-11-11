@@ -13,6 +13,12 @@
   ]]></description>
 
     <change-notes><![CDATA[
+    <p>2.5</p>
+    <ul>
+      <li>翻译strings.xml文件时，支持通过给resources节点设置locale-alias属性指定翻译的语言别名</li>
+      <li>原来的'提取多语言'Action现在仅提取到模版文件，增加'提取多语言并翻译'Action，除了将文本提取到模版文件，还会翻译成其它语言并插入对应文件</li>
+    </ul>
+
     <p>2.4</p>
     <ul>
       <li>优化项目代码线程调度逻辑，解决部分操作只能在EDT执行但实际执行不在EDT线程及写入上下文不安全问题</li>

@@ -3,7 +3,7 @@
     <name>AndroidDevTools</name>
     <vendor email="wanggaowan@163.com" url="https://github.com/wanggaowan/AndroidDevTools" />
 
-    <xi:include href="plugin_desc.xml"/>
+    <xi:include href="plugin_desc.xml" />
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
@@ -59,10 +59,12 @@
             <action id="AndroidDevTools.ExtractStr2L10n"
                 class="com.wanggaowan.android.dev.tools.actions.translate.ExtractStr2L10nAction"
                 text="提取为多语言" />
-            <action
-                id="AndroidDevTools.DeleteStringsSameKeyElementAction"
+            <action id="AndroidDevTools.ExtractStr2L10nWithTranslateAction"
+                class="com.wanggaowan.android.dev.tools.actions.translate.ExtractStr2L10nWithTranslateAction"
+                text="提取为多语言并翻译" />
+            <action id="AndroidDevTools.DeleteStringsSameKeyElementAction"
                 class="com.wanggaowan.android.dev.tools.actions.DeleteStringsSameKeyElementAction"
-                text="在所有strings文件中删除此项"/>
+                text="在所有strings文件中删除此项" />
             <separator />
             <add-to-group group-id="EditorPopupMenu" anchor="first" />
         </group>
