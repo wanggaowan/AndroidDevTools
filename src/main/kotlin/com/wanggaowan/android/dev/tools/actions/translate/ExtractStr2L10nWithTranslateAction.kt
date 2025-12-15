@@ -56,7 +56,6 @@ import java.awt.event.KeyListener
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
-import kotlin.math.max
 
 /**
  * 提取文本为多语言
@@ -197,7 +196,8 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
             text = text.substring(1, text.length - 1)
         }
 
-        var translateText = text.trim()
+        /// 多语言Key用于翻译的文本
+        var keyTranslateText = text.trim()
         val templateEntryList = mutableListOf<KtStringTemplateEntry>()
         if (fileType == 2) {
             findAllKTStringTemplateEntry(selectedElement.firstChild, templateEntryList)
@@ -213,19 +213,19 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
                     text = text.replaceRange(index, index + element.length, "%${it + 1}\$s")
                 }
 
-                index = translateText.indexOf(element)
+                index = keyTranslateText.indexOf(element)
                 if (index != -1) {
-                    translateText = translateText.replaceRange(index, index + element.length, "")
+                    keyTranslateText = keyTranslateText.replaceRange(index, index + element.length, "")
                 }
             }
         }
 
-        val oldLength = translateText.length
-        translateText = removeStrPlaceHolder(translateText, templateEntryList)!!
+        val oldLength = keyTranslateText.length
+        keyTranslateText = removePlaceHolder(keyTranslateText)
         if (!isFormat) {
-            isFormat = translateText.length != oldLength
+            isFormat = keyTranslateText.length != oldLength
         }
-        translateText = translateText.trim()
+        keyTranslateText = keyTranslateText.trim()
 
         val otherStringsFile = mutableListOf<TranslateStringsFile>()
         val existKey: String? = getExistKeyByValue(xmlTag, text)
@@ -274,7 +274,7 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
             templateEntryList,
             text,
             sourceLanguage,
-            translateText,
+            keyTranslateText,
             xmlTag,
             stringsPsiFile,
             otherStringsFile,
@@ -283,26 +283,16 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
     }
 
     /// 移除字符串中的占位符
-    private fun removeStrPlaceHolder(
-        translate: String?,
-        templateEntryList: List<KtStringTemplateEntry>,
-    ): String? {
-        if (translate.isNullOrEmpty()) {
-            return null
+    private fun removePlaceHolder(translate: String): String {
+        if (translate.isEmpty()) {
+            return translate
         }
 
         var translateText = translate
-        val placeHolders = listOf("s", "d", "f", "l")
+        val placeHolders = listOf("s", "d", "f")
         placeHolders.forEach {
-            // 如果templateEntryList有值，说明是kotlin语言，此时取最大占位符数量
-            for (i in 0 until max(6, templateEntryList.size + 1)) {
-                // 去除翻译后占位符之间的空格
-                translateText = if (i == 0) {
-                    translateText?.replace("%$it", "")
-                } else {
-                    translateText?.replace("%$i$$it", "")
-                }
-            }
+            val regex = Regex(TranslateUtils.getPlaceHolderRegex(it))
+            translateText = translateText.replace(regex, "")
         }
         return translateText
     }
@@ -315,7 +305,7 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
         templateEntryList: List<KtStringTemplateEntry>,
         originalText: String,
         sourceLanguage: String,
-        translateText: String,
+        keyTranslateText: String,
         xmlTag: XmlTag?,
         stringsPsiFile: PsiFile,
         otherStringsFile: List<TranslateStringsFile>,
@@ -331,7 +321,7 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
                 progressIndicator.isIndeterminate = false
                 val totalCount = 1.0 + otherStringsFile.size
                 CoroutineScope(Dispatchers.Default).launch launch2@{
-                    val enTranslate = TranslateUtils.translate(translateText, sourceLanguage, "en")
+                    val enTranslate = TranslateUtils.translate(keyTranslateText, sourceLanguage, "en")
                     val key = TranslateUtils.mapStrToKey(enTranslate, isFormat)
                     if (progressIndicator.isCanceled) {
                         return@launch2
@@ -346,13 +336,8 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
                         } else if (!translateLanguage.isNullOrEmpty()) {
                             file.translate =
                                 TranslateUtils.translate(originalText, sourceLanguage, translateLanguage)
-                            if (isFormat) {
-                                file.translate = TranslateUtils.fixTranslateError(
-                                    file.translate,
-                                    translateLanguage,
-                                    templateEntryList.size
-                                )
-                            }
+                            file.translate =
+                                TranslateUtils.fixTranslateError(file.translate, translateLanguage)
                         }
 
                         if (progressIndicator.isCanceled) {

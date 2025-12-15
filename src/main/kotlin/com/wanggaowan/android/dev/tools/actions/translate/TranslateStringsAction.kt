@@ -172,7 +172,7 @@ class TranslateStringsAction : DumbAwareAction() {
                     } else {
                         // 默认字符里面含有占位符
                         translateStr =
-                            TranslateUtils.fixTranslateError(translateStr, targetLanguage, 5)
+                            TranslateUtils.fixTranslateError(translateStr, targetLanguage)
                         if (translateStr != null) {
                             writeResult(project, stringsPsiFile, key, translateStr)
                         } else {

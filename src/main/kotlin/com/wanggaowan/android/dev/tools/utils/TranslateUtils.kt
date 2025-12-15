@@ -15,7 +15,6 @@ import java.time.Duration
 import java.util.*
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import kotlin.math.max
 
 private val LOG = logger<TranslateUtils>()
 
@@ -192,7 +191,7 @@ object TranslateUtils {
         }
 
         if (value.endsWith("_")) {
-            value = value.substring(0, value.length - 1)
+            value = value.dropLast(1)
         }
 
         return value
@@ -202,43 +201,28 @@ object TranslateUtils {
     fun fixTranslateError(
         translate: String?,
         targetLanguage: String,
-        placeHolderCount: Int? = null
     ): String? {
-        var translateStr = fixTranslatePlaceHolderStr(translate, placeHolderCount)
+        var translateStr = fixTranslatePlaceHolderStr(translate)
         translateStr = fixNewLineFormatError(translateStr)
-        if (targetLanguage == "en") {
+        if (targetLanguage != "zh" && targetLanguage != "ja") {
             translateStr = fixEnTranslatePlaceHolderStr(translateStr)
         }
         translateStr = translateStr?.replace("'", "\\'")
         return translateStr
     }
 
-    /// 修复因翻译，导致占位符被翻译为大写的问题
-    private fun fixTranslatePlaceHolderStr(
-        translate: String?,
-        placeHolderCount: Int? = null
-    ): String? {
+    /// 修复因翻译，导致占位符格式错误，比如%s翻译后是%S，或者中间有空格如% s
+    private fun fixTranslatePlaceHolderStr(translate: String?): String? {
         if (translate.isNullOrEmpty()) {
             return null
         }
 
         var translateText: String = translate
-        val placeHolders = listOf("s", "d", "f", "l")
+        // 此处只处理常用占位符
+        val placeHolders = listOf("s", "d", "f")
         placeHolders.forEach {
-            // 如果templateEntryList有值，说明是kotlin语言，此时取最大占位符数量
-            for (i in 0 until max(6, (placeHolderCount ?: 0) + 1)) {
-                // 去除翻译后占位符之间的空格
-                translateText = if (i == 0) {
-                    // 正则：%\s+s
-                    val value = fixFormatError(Regex("%\\s+$it"), translateText, "%$it")
-                    fixFormatError(Regex("%\\s+${it.uppercase()}"), value, "%$it")
-                } else {
-                    // 正则：%\s*1\s*\$\s*s
-                    val value =
-                        fixFormatError(Regex("%\\s*$i\\s*\\$\\s*$it"), translateText, "%$i$$it")
-                    fixFormatError(Regex("%\\s*$i\\s*\\$\\s*${it.uppercase()}"), value, "%$i$$it")
-                }
-            }
+            val regex = Regex(getPlaceHolderRegex(it))
+            translateText = fixFormatError(regex, translateText)
         }
         return translateText
     }
@@ -250,35 +234,46 @@ object TranslateUtils {
         }
 
         var translateText: String = translate
-        val placeHolders = listOf("s", "d", "f", "l")
+        val placeHolders = listOf("s", "d", "f")
         placeHolders.forEach {
-            for (i in 0 until 6) {
-                // 去除翻译后占位符之间的空格
-                val placeHolder = if (i == 0) {
-                    "%$it"
-                } else {
-                    "%$i$$it"
-                }
-                translateText = insertWhiteSpace(0, translateText, placeHolder)
-            }
+            val regex = Regex(getPlaceHolderRegex(it))
+            translateText = insertWhiteSpace(translateText, regex)
         }
         return translateText
     }
 
-    // 在占位符和单词直接插入空格
-    private fun insertWhiteSpace(start: Int, text: String, placeHolder: String): String {
-        var translateText = text
-        val index = translateText.indexOf(placeHolder, start)
-        if (index > 0) {
-            val chart = translateText.substring(index - 1, index)
-            if (chart.matches(Regex("[a-zA-Z0-9]"))) {
-                translateText =
-                    "${translateText.substring(0, index)} ${translateText.substring(index)}"
-                translateText =
-                    insertWhiteSpace(index + placeHolder.length + 1, translateText, placeHolder)
-            }
+    // 在占位符和单词直间插入空格
+    private tailrec fun insertWhiteSpace(text: String, regex: Regex, offset: Int = 0): String {
+        if (text.isEmpty()) {
+            return text
         }
-        return translateText
+
+        val matchResult = regex.find(text, offset) ?: return text
+        val start = matchResult.range.first
+        val end = matchResult.range.last
+        var translateText = text
+        var chart = translateText.substring(start - 1, start)
+        var offset = 0
+        val numberRegex = Regex("[a-zA-Z0-9]")
+        if (chart.matches(numberRegex)) {
+            translateText =
+                "${translateText.take(start)} ${translateText.substring(start)}"
+            offset++
+        }
+
+        val totalLength = translateText.length
+        if (end + offset >= totalLength) {
+            return translateText
+        }
+
+        chart = translateText.substring(end + offset + 1, end + offset + 2)
+        if (chart.matches(numberRegex)) {
+            translateText =
+                "${translateText.take(end + offset + 1)} ${translateText.substring(end + offset + 1)}"
+            offset++
+        }
+
+        return insertWhiteSpace(translateText, regex, end + offset)
     }
 
     // 修复格式错误，如\n,翻译成 \ n
@@ -287,29 +282,47 @@ object TranslateUtils {
             return text
         }
 
-        val regex = Regex("\\\\\\s+n") // \\\s+n
-        return fixFormatError(regex, text, "\\n")
+        var regex = Regex("\\\\\\s+n") // \\\s+n
+        val text2 = fixFormatError(regex, text)
+        regex = Regex("\\s*\\\\n\\s*")
+        return text2.replace(regex, "\\\\n")
     }
 
+    /**
+     * 修复格式错误，比如%s翻译后是%S，\n翻译后是\N，或者中间有空格如% s，\ n等
+     *
+     * [text]为需要修复的文本
+     * [regex]为查找错误格式文本的正则表达式
+     */
     private tailrec fun fixFormatError(
         regex: Regex,
         text: String,
-        placeHolder: String,
-        oldRange: IntRange? = null
+        offset: Int? = null
     ): String {
         if (text.isEmpty()) {
             return text
         }
-        val matchResult = regex.find(text) ?: return text
-        if (matchResult.range == oldRange) {
-            return text
-        }
+
+        val matchResult = regex.find(text, offset ?: 0) ?: return text
+        var placeHolder = text.substring(matchResult.range)
+        val oldLength = placeHolder.length
+        placeHolder = placeHolder.replace(" ", "").lowercase()
 
         return fixFormatError(
             regex,
             text.replaceRange(matchResult.range, placeHolder),
-            placeHolder,
-            matchResult.range
+            matchResult.range.last - (oldLength - placeHolder.length)
         )
+    }
+
+    /**
+     * 获取字符串占位符正则表达式
+     *
+     * [suffix]为占位符后缀，如s、d、f
+     */
+    fun getPlaceHolderRegex(suffix: String): String {
+        // %[-+.#(0-9\s\$]*(s|S)，此正则仅匹配一些常用的规则，并未覆盖所有情况
+        // java字符串格式化详细文档可查看java.util.Formatter
+        return "%[-+.#(0-9\\s\\\\$]*($suffix|${suffix.uppercase()})"
     }
 }
