@@ -201,13 +201,27 @@ object TranslateUtils {
     fun fixTranslateError(
         translate: String?,
         targetLanguage: String,
+        isTemplateStr: Boolean = false,
     ): String? {
-        var translateStr = fixTranslatePlaceHolderStr(translate)
-        translateStr = fixNewLineFormatError(translateStr)
-        if (targetLanguage != "zh" && targetLanguage != "ja") {
-            translateStr = fixEnTranslatePlaceHolderStr(translateStr)
+        var translateStr = if (isTemplateStr) {
+            translate
+        } else {
+            var str = fixTranslatePlaceHolderStr(translate)
+            str = fixNewLineFormatError(str)
+            if (targetLanguage != "zh" && targetLanguage != "ja") {
+                str = fixEnTranslatePlaceHolderStr(str)
+            }
+            str
         }
-        translateStr = translateStr?.replace("'", "\\'")
+
+        if (translateStr != null) {
+            // 处理单引号缺失的转义斜杠。以下正则匹配单引号前面的反斜杠
+            var regex = Regex("[\\\\\\s]*'")
+            translateStr = fixEscapeFormatError(regex, translateStr)
+            // 处理双引号缺失的转义斜杠。以下正则匹配双引号前面的反斜杠
+            regex = Regex("[\\\\\\s]*\"")
+            translateStr = fixEscapeFormatError(regex, translateStr)
+        }
         return translateStr
     }
 
@@ -276,16 +290,14 @@ object TranslateUtils {
         return insertWhiteSpace(translateText, regex, end + offset)
     }
 
-    // 修复格式错误，如\n,翻译成 \ n
+    // 修复格式错误，如\n,翻译成 \ n、\N、\ N
     private fun fixNewLineFormatError(text: String?): String? {
         if (text.isNullOrEmpty()) {
             return text
         }
 
-        var regex = Regex("\\\\\\s+n") // \\\s+n
-        val text2 = fixFormatError(regex, text)
-        regex = Regex("\\s*\\\\n\\s*")
-        return text2.replace(regex, "\\\\n")
+        val regex = Regex("\\s*\\\\\\s*[nN]\\s*") // \s*\\\s*[nN]\s*
+        return text.replace(regex, "\\\\n")
     }
 
     /**
@@ -324,5 +336,52 @@ object TranslateUtils {
         // %[-+.#(0-9\s\$]*(s|S)，此正则仅匹配一些常用的规则，并未覆盖所有情况
         // java字符串格式化详细文档可查看java.util.Formatter
         return "%[-+.#(0-9\\s\\\\$]*($suffix|${suffix.uppercase()})"
+    }
+
+    /**
+     * 修复转义错误，比如'，"未加反斜杠或反斜杠数量多了
+     *
+     * [text] 为需要修复的文本
+     * [regex] 为查找错误格式文本的正则表达式
+     * [isAdd] 表示是添加还是去除反斜杠
+     */
+    private tailrec fun fixEscapeFormatError(
+        regex: Regex,
+        text: String,
+        isAdd: Boolean = true,
+        offset: Int? = null,
+    ): String {
+        if (text.isEmpty()) {
+            return text
+        }
+
+        val matchResult = regex.find(text, offset ?: 0) ?: return text
+        var placeHolder = text.substring(matchResult.range)
+        val oldLength = placeHolder.length
+        placeHolder = placeHolder.replace(" ", "")
+
+        val count = placeHolder.count { it.toString() == "\\" }
+        val end = if (isAdd) {
+            if (count % 2 == 0) {
+                // 新增转义字符时，只有之前存在偶数个时才处理
+                placeHolder = "\\$placeHolder"
+                matchResult.range.last + 1 + (placeHolder.length - oldLength)
+            } else {
+                matchResult.range.last + 1 + (placeHolder.length - oldLength)
+            }
+        } else if (count % 2 != 0) {
+            // 移除转义字符时，只有之前存在奇数个时才处理
+            placeHolder = placeHolder.substring(1, placeHolder.length)
+            matchResult.range.last + (placeHolder.length - oldLength)
+        } else {
+            matchResult.range.last + 1 + (placeHolder.length - oldLength)
+        }
+
+        return fixEscapeFormatError(
+            regex,
+            text.replaceRange(matchResult.range, placeHolder),
+            isAdd,
+            end
+        )
     }
 }

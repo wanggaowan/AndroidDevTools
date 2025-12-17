@@ -8,6 +8,7 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
@@ -215,7 +216,8 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
 
                 index = keyTranslateText.indexOf(element)
                 if (index != -1) {
-                    keyTranslateText = keyTranslateText.replaceRange(index, index + element.length, "")
+                    keyTranslateText =
+                        keyTranslateText.replaceRange(index, index + element.length, "")
                 }
             }
         }
@@ -229,10 +231,7 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
 
         val otherStringsFile = mutableListOf<TranslateStringsFile>()
         val existKey: String? = getExistKeyByValue(xmlTag, text)
-        var sourceLanguage: String = xmlTag?.getAttributeValue("locale-alias") ?: "zh"
-        if (sourceLanguage.isEmpty()) {
-            sourceLanguage = "zh"
-        }
+        val sourceLanguageAlias: String? = xmlTag?.getAttributeValue("locale-alias")
 
         if (translateOther) {
             stringsPsiFile.virtualFile?.parent?.parent?.children?.let { files ->
@@ -266,6 +265,14 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
             }
         }
 
+        val defaultStringsFile = TranslateStringsFile(
+            "zh",
+            sourceLanguageAlias,
+            stringsPsiFile,
+            xmlTag,
+            TranslateUtils.fixTranslateError(text, "zh", true)
+        )
+
         changeData(
             project,
             selectedFile,
@@ -273,10 +280,8 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
             existKey,
             templateEntryList,
             text,
-            sourceLanguage,
             keyTranslateText,
-            xmlTag,
-            stringsPsiFile,
+            defaultStringsFile,
             otherStringsFile,
             isFormat
         )
@@ -297,6 +302,17 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
         return translateText
     }
 
+    /**
+     * 执行翻译插入操作
+     *
+     * [existKey] 表示当前提取的多语言是否在模版arb文件中已存在
+     * [templateEntryList] 为占位符列表
+     * [originalText] 为选中的原始文本，未经任何加工
+     * [keyTranslateText] 为对原始文本进行加工，用于翻译为引用字段Key的文本内容
+     * [defaultStringsFile] 为模板arb文件中需要翻译的内容
+     * [otherStringsFile] 为其它语言strings文件
+     * [isFormat] 表示是否存在占位符，不使用templateEntryList判断，是因为java语言没有此内容，此内容仅Kotlin文本存在
+     */
     private fun changeData(
         project: Project,
         selectedFile: PsiFile,
@@ -304,10 +320,8 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
         existKey: String?,
         templateEntryList: List<KtStringTemplateEntry>,
         originalText: String,
-        sourceLanguage: String,
         keyTranslateText: String,
-        xmlTag: XmlTag?,
-        stringsPsiFile: PsiFile,
+        defaultStringsFile: TranslateStringsFile,
         otherStringsFile: List<TranslateStringsFile>,
         isFormat: Boolean
     ) {
@@ -321,7 +335,9 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
                 progressIndicator.isIndeterminate = false
                 val totalCount = 1.0 + otherStringsFile.size
                 CoroutineScope(Dispatchers.Default).launch launch2@{
-                    val enTranslate = TranslateUtils.translate(keyTranslateText, sourceLanguage, "en")
+                    val sourceLanguage = defaultStringsFile.translateLanguage!!
+                    val enTranslate =
+                        TranslateUtils.translate(keyTranslateText, sourceLanguage, "en")
                     val key = TranslateUtils.mapStrToKey(enTranslate, isFormat)
                     if (progressIndicator.isCanceled) {
                         return@launch2
@@ -332,7 +348,7 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
                     otherStringsFile.forEach { file ->
                         val translateLanguage = file.translateLanguage
                         if (translateLanguage == "en" && !isFormat) {
-                            file.translate = enTranslate
+                            file.translate = TranslateUtils.fixTranslateError(enTranslate, "en")
                         } else if (!translateLanguage.isNullOrEmpty()) {
                             file.translate =
                                 TranslateUtils.translate(originalText, sourceLanguage, translateLanguage)
@@ -356,7 +372,7 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
                         var showRename = false
                         if (key == null || PluginSettings.getExtractStr2L10nShowRenameDialog(project)) {
                             showRename = true
-                        } else if (xmlTag?.findFirstSubTag(key) != null) {
+                        } else if (defaultStringsFile.xmlTag?.findFirstSubTag(key) != null) {
                             showRename = true
                         }
 
@@ -366,65 +382,87 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
 
                         if (showRename) {
                             progressIndicator.fraction = 1.0
-                            val newKey = renameKey(project, key, xmlTag, otherStringsFile)
-                                ?: return@launch
-                            WriteCommandAction.runWriteCommandAction(project) {
-                                insertElement(project, stringsPsiFile, xmlTag, newKey, originalText)
-                                replaceElement(
-                                    selectedFile,
-                                    selectedElement,
-                                    templateEntryList,
-                                    newKey
-                                )
-                                otherStringsFile.forEach { file ->
-                                    val tl = file.translate
-                                    if (!tl.isNullOrEmpty()) {
-                                        insertElement(
-                                            project,
-                                            file.stringsFile,
-                                            file.xmlTag,
-                                            newKey,
-                                            tl,
-                                        )
-                                    }
-                                }
-                            }
+                            val newKey =
+                                renameKey(project, key, defaultStringsFile, otherStringsFile)
+                                    ?: return@launch
+
+                            insertElement(
+                                project,
+                                progressIndicator,
+                                selectedFile,
+                                selectedElement,
+                                templateEntryList,
+                                defaultStringsFile,
+                                newKey,
+                                otherStringsFile,
+                            )
                         } else {
-                            WriteCommandAction.runWriteCommandAction(project) {
-                                insertElement(project, stringsPsiFile, xmlTag, key!!, originalText)
-                                replaceElement(
-                                    selectedFile,
-                                    selectedElement,
-                                    templateEntryList,
-                                    key
-                                )
-                                var existFailed = false
-                                otherStringsFile.forEach { file ->
-                                    val tl = file.translate
-                                    if (!tl.isNullOrEmpty()) {
-                                        insertElement(
-                                            project,
-                                            file.stringsFile,
-                                            file.xmlTag,
-                                            key,
-                                            tl,
-                                        )
-                                    } else if (file.translateLanguage.isNullOrEmpty()) {
-                                        existFailed = true
-                                    }
-                                }
-                                progressIndicator.fraction = 1.0
-                                if (existFailed) {
-                                    NotificationUtils.showBalloonMsg(
-                                        project,
-                                        "存在部分string.xml所属文件夹名未指定语言或string.xml resources节点属性未指定locale-alias，此文件的翻译已忽略",
-                                        NotificationType.WARNING
-                                    )
-                                }
-                            }
+                            insertElement(
+                                project,
+                                progressIndicator,
+                                selectedFile,
+                                selectedElement,
+                                templateEntryList,
+                                defaultStringsFile,
+                                key!!,
+                                otherStringsFile,
+                            )
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // 将翻译后的内容插入arb文件
+    private fun insertElement(
+        project: Project,
+        progressIndicator: ProgressIndicator,
+        selectedFile: PsiFile,
+        selectedElement: PsiElement,
+        templateEntryList: List<KtStringTemplateEntry>,
+        defaultStringsFile: TranslateStringsFile,
+        newKey: String,
+        otherStringsFile: List<TranslateStringsFile>,
+    ) {
+        WriteCommandAction.runWriteCommandAction(project) {
+            insertElement(
+                project,
+                defaultStringsFile.stringsFile,
+                defaultStringsFile.xmlTag, newKey,
+                defaultStringsFile.translate ?: "",
+            )
+
+            replaceElement(
+                selectedFile,
+                selectedElement,
+                templateEntryList,
+                newKey
+            )
+
+            var existFailed = false
+            otherStringsFile.forEach { file ->
+                val tl = file.translate
+                if (!tl.isNullOrEmpty()) {
+                    insertElement(
+                        project,
+                        file.stringsFile,
+                        file.xmlTag,
+                        newKey,
+                        tl,
+                    )
+                } else if (file.translateLanguage.isNullOrEmpty()) {
+                    existFailed = true
+                }
+            }
+
+            progressIndicator.fraction = 1.0
+            if (existFailed) {
+                NotificationUtils.showBalloonMsg(
+                    project,
+                    "存在部分string.xml所属文件夹名未指定语言或string.xml resources节点属性未指定locale-alias，此文件的翻译已忽略",
+                    NotificationType.WARNING
+                )
             }
         }
     }
@@ -449,11 +487,11 @@ open class ExtractStr2L10nWithTranslateAction(private val translateOther: Boolea
     // 重命名多语言在strings.xml文件中的key
     private fun renameKey(
         project: Project,
-        translate: String?,
-        xmlTag: XmlTag?,
+        key: String?,
+        defaultStringsFile: TranslateStringsFile,
         otherStringsFile: List<TranslateStringsFile>
     ): String? {
-        val dialog = InputKeyDialog(project, translate, xmlTag, otherStringsFile)
+        val dialog = InputKeyDialog(project, key, defaultStringsFile, otherStringsFile)
         dialog.show()
         if (dialog.exitCode != DialogWrapper.OK_EXIT_CODE) {
             return null
@@ -573,7 +611,7 @@ private fun isExistKey(xmlTag: XmlTag?, key: String): Boolean {
 class InputKeyDialog(
     val project: Project,
     private var defaultValue: String?,
-    private val xmlTag: XmlTag?,
+    private val defaultStringsFile: TranslateStringsFile,
     private val otherStringsFile: List<TranslateStringsFile>,
 ) : DialogWrapper(project, false) {
 
@@ -599,7 +637,8 @@ class InputKeyDialog(
         val existKeyHint = JLabel("已存在相同key")
         existKeyHint.foreground = JBColor.RED
         existKeyHint.font = UIUtil.getFont(UIUtil.FontSize.SMALL, existKeyHint.font)
-        existKey = if (defaultValue.isNullOrEmpty()) false else isExistKey(xmlTag, defaultValue!!)
+        existKey =
+            if (defaultValue.isNullOrEmpty()) false else isExistKey(defaultStringsFile.xmlTag, defaultValue!!)
         existKeyHint.isVisible = existKey
 
         val content = JBTextArea()
@@ -641,19 +680,19 @@ class InputKeyDialog(
         content.document.addDocumentListener(object : DocumentListener {
             override fun insertUpdate(p0: DocumentEvent?) {
                 val str = content.text.trim()
-                existKey = isExistKey(xmlTag, str)
+                existKey = isExistKey(defaultStringsFile.xmlTag, str)
                 existKeyHint.isVisible = existKey
             }
 
             override fun removeUpdate(p0: DocumentEvent?) {
                 val str = content.text.trim()
-                existKey = isExistKey(xmlTag, str)
+                existKey = isExistKey(defaultStringsFile.xmlTag, str)
                 existKeyHint.isVisible = existKey
             }
 
             override fun changedUpdate(p0: DocumentEvent?) {
                 val str = content.text.trim()
-                existKey = isExistKey(xmlTag, str)
+                existKey = isExistKey(defaultStringsFile.xmlTag, str)
                 existKeyHint.isVisible = existKey
             }
         })
@@ -679,92 +718,91 @@ class InputKeyDialog(
         builder.addComponent(jsp)
         builder.addComponent(existKeyHint)
 
-        if (otherStringsFile.isNotEmpty()) {
-            val label = JLabel("以下为其它语言翻译内容：")
-            label.border = BorderFactory.createEmptyBorder(10, 0, 0, 0)
-            builder.addComponent(label)
+        val stringsFiles: MutableList<TranslateStringsFile> = mutableListOf(defaultStringsFile)
+        stringsFiles.addAll(otherStringsFile)
+        val label = JLabel("以下为翻译内容：")
+        label.border = BorderFactory.createEmptyBorder(10, 0, 0, 0)
+        builder.addComponent(label)
+        stringsFiles.forEach {
+            val box = Box.createHorizontalBox()
+            box.border = BorderFactory.createEmptyBorder(4, 0, 0, 0)
 
-            otherStringsFile.forEach {
-                val box = Box.createHorizontalBox()
-                box.border = BorderFactory.createEmptyBorder(4, 0, 0, 0)
-
-                var title = it.targetLanguage
-                if (!it.targetLanguageAlias.isNullOrEmpty()) {
-                    title += "(${it.targetLanguageAlias})"
-                }
-                title += "："
-
-                val label2 = JBTextArea(title)
-                label2.isEditable = false // 如果不需要编辑功能
-                label2.lineWrap = true // 启用自动换行
-                label2.wrapStyleWord = true // 确保单词不会被拆分到两行
-                label2.setBorder(BorderFactory.createEmptyBorder())
-                label2.background = Color(0, 0, 0, 0)
-                label2.preferredSize = Dimension(40, 60)
-                label2.maximumSize = Dimension(80, 60)
-                label2.minimumSize = Dimension(40, 60)
-                box.add(label2)
-
-                val content =
-                    if (it.translateLanguage.isNullOrEmpty()) "${it.stringsFile.name}所属文件夹名未指定语言或${it.stringsFile.name} resources节点属性未指定locale-alias，无法翻译，请配置属性后重试" else it.translate
-                val textArea = JBTextArea(content)
-                textArea.minimumSize = Dimension(260, 60)
-                textArea.lineWrap = true
-                textArea.wrapStyleWord = true
-                if (it.translateLanguage.isNullOrEmpty()) {
-                    textArea.isEditable = false
-                    textArea.foreground = JBColor.RED
-                }
-
-                val jsp2 = JBScrollPane(textArea)
-                jsp2.minimumSize = Dimension(260, 60)
-                box.add(jsp2)
-
-                textArea.addFocusListener(object : FocusListener {
-                    override fun focusGained(p0: FocusEvent?) {
-                        jsp2.border = BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(UIColor.INPUT_FOCUS_COLOR, 2, true),
-                            BorderFactory.createEmptyBorder(2, 2, 2, 2)
-                        )
-                    }
-
-                    override fun focusLost(p0: FocusEvent?) {
-                        jsp2.border = BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(UIColor.INPUT_UN_FOCUS_COLOR, 1, true),
-                            BorderFactory.createEmptyBorder(2, 2, 2, 2)
-                        )
-                    }
-                })
-
-                textArea.document.addDocumentListener(object : DocumentListener {
-                    override fun insertUpdate(p0: DocumentEvent?) {
-                        val str = textArea.text.trim()
-                        it.translate = str
-                    }
-
-                    override fun removeUpdate(p0: DocumentEvent?) {
-                        val str = textArea.text.trim()
-                        it.translate = str
-                    }
-
-                    override fun changedUpdate(p0: DocumentEvent?) {
-                        val str = textArea.text.trim()
-                        it.translate = str
-                    }
-                })
-
-                builder.addComponent(box)
+            var title = it.targetLanguage
+            if (!it.targetLanguageAlias.isNullOrEmpty()) {
+                title += "(${it.targetLanguageAlias})"
             }
+            title += "："
+
+            val label2 = JBTextArea(title)
+            label2.isEditable = false // 如果不需要编辑功能
+            label2.lineWrap = true // 启用自动换行
+            label2.wrapStyleWord = true // 确保单词不会被拆分到两行
+            label2.setBorder(BorderFactory.createEmptyBorder())
+            label2.background = Color(0, 0, 0, 0)
+            label2.preferredSize = Dimension(40, 60)
+            label2.maximumSize = Dimension(80, 60)
+            label2.minimumSize = Dimension(40, 60)
+            box.add(label2)
+
+            val content =
+                if (it.translateLanguage.isNullOrEmpty()) "${it.stringsFile.name}所属文件夹名未指定语言或${it.stringsFile.name} resources节点属性未指定locale-alias，无法翻译，请配置属性后重试" else it.translate
+            val textArea = JBTextArea(content)
+            textArea.minimumSize = Dimension(260, 60)
+            textArea.lineWrap = true
+            textArea.wrapStyleWord = true
+            if (it.translateLanguage.isNullOrEmpty()) {
+                textArea.isEditable = false
+                textArea.foreground = JBColor.RED
+            }
+
+            val jsp2 = JBScrollPane(textArea)
+            jsp2.minimumSize = Dimension(260, 60)
+            box.add(jsp2)
+
+            textArea.addFocusListener(object : FocusListener {
+                override fun focusGained(p0: FocusEvent?) {
+                    jsp2.border = BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(UIColor.INPUT_FOCUS_COLOR, 2, true),
+                        BorderFactory.createEmptyBorder(2, 2, 2, 2)
+                    )
+                }
+
+                override fun focusLost(p0: FocusEvent?) {
+                    jsp2.border = BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(UIColor.INPUT_UN_FOCUS_COLOR, 1, true),
+                        BorderFactory.createEmptyBorder(2, 2, 2, 2)
+                    )
+                }
+            })
+
+            textArea.document.addDocumentListener(object : DocumentListener {
+                override fun insertUpdate(p0: DocumentEvent?) {
+                    val str = textArea.text.trim()
+                    it.translate = str
+                }
+
+                override fun removeUpdate(p0: DocumentEvent?) {
+                    val str = textArea.text.trim()
+                    it.translate = str
+                }
+
+                override fun changedUpdate(p0: DocumentEvent?) {
+                    val str = textArea.text.trim()
+                    it.translate = str
+                }
+            })
+
+            builder.addComponent(box)
         }
 
-        val rootPanel: JPanel = if (otherStringsFile.size > 5) {
+        val rootPanel: JPanel = if (stringsFiles.size > 5) {
             builder.addComponentFillVertically(JPanel(), 0).panel
         } else {
             builder.panel
         }
 
         val jb = JBScrollPane(rootPanel)
-        jb.preferredSize = JBUI.size(300, 40 + 60 * (otherStringsFile.size).coerceAtMost(5))
+        jb.preferredSize = JBUI.size(300, 40 + 60 * (stringsFiles.size).coerceAtMost(5))
         jb.border = BorderFactory.createEmptyBorder()
         return jb
     }
