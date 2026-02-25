@@ -13,6 +13,11 @@
   ]]></description>
 
     <change-notes><![CDATA[
+    <p>2.6</p>
+    <ul>
+      <li>翻译ak，sk使用插件设置配置，不再内置，存在泄露风险</li>
+    </ul>
+
     <p>2.5</p>
     <ul>
       <li>翻译strings.xml文件时，支持通过给resources节点设置locale-alias属性指定翻译的语言别名</li>

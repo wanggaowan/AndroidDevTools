@@ -27,6 +27,14 @@ class ProjectPluginSettingsConfigurable(val project: Project) : Configurable {
     }
 
     private fun isExtractStr2L10nModified(): Boolean {
+        if (PluginSettings.getAliAk() != mSettingsView?.aliAk?.text) {
+            return true
+        }
+
+        if (PluginSettings.getAliSk() != mSettingsView?.aliSk?.text) {
+            return true
+        }
+
         if (PluginSettings.getExtractStr2L10nShowRenameDialog(getProjectWrapper()) != mSettingsView?.extractStr2L10nShowRenameDialog?.isSelected) {
             return true
         }
@@ -39,6 +47,10 @@ class ProjectPluginSettingsConfigurable(val project: Project) : Configurable {
     }
 
     private fun applyExtractStr2L10n() {
+        PluginSettings.setAliAk(mSettingsView?.aliAk?.text ?: "")
+
+        PluginSettings.setAliSk(mSettingsView?.aliSk?.text ?: "")
+
         PluginSettings.setExtractStr2L10nShowRenameDialog(
             getProjectWrapper(),
             mSettingsView?.extractStr2L10nShowRenameDialog?.isSelected != false
@@ -50,6 +62,9 @@ class ProjectPluginSettingsConfigurable(val project: Project) : Configurable {
     }
 
     private fun resetExtractStr2L10n() {
+        mSettingsView?.aliAk?.text = PluginSettings.getAliAk()
+        mSettingsView?.aliSk?.text = PluginSettings.getAliSk()
+
         mSettingsView?.extractStr2L10nShowRenameDialog?.isSelected =
             PluginSettings.getExtractStr2L10nShowRenameDialog(getProjectWrapper())
     }

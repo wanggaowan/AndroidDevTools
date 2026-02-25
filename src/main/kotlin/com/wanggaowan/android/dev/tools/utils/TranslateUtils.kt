@@ -3,6 +3,7 @@ package com.wanggaowan.android.dev.tools.utils
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.intellij.openapi.diagnostic.logger
+import com.wanggaowan.android.dev.tools.settings.PluginSettings
 import java.io.UnsupportedEncodingException
 import java.net.URI
 import java.net.URLEncoder
@@ -40,15 +41,25 @@ object TranslateUtils {
         sourceLanguage: String,
         targetLanguage: String,
     ): String? {
+        val ak = PluginSettings.getAliAk()
+        if (ak == "") {
+            LOG.error("阿里翻译失败,未配置阿里云翻译AccessKeyId")
+            return null
+        }
+
+        val sk = PluginSettings.getAliSk()
+        if (sk == "") {
+            LOG.error("阿里翻译失败,未配置阿里云翻译secretKey")
+            return null
+        }
+
         val uuid = UUID.randomUUID().toString()
         val dateformat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
         dateformat.timeZone = TimeZone.getTimeZone("UTC")
         val time = dateformat.format(Date())
 
-        var accessKeyId = "TFRBSTV0UnFrbzY3QThVeFZDOGt4dHNu"
-        accessKeyId = String(mapValue(accessKeyId))
         val queryMap = mutableMapOf<String, String>()
-        queryMap["AccessKeyId"] = accessKeyId
+        queryMap["AccessKeyId"] = ak
         queryMap["Action"] = "TranslateGeneral"
         queryMap["Format"] = "JSON"
         queryMap["FormatType"] = "text"
@@ -66,7 +77,8 @@ object TranslateUtils {
         var queryString = getCanonicalizedQueryString(queryMap, queryMap.keys.toTypedArray())
 
         val stringToSign = "GET" + "&" + encodeURI("/") + "&" + encodeURI(queryString)
-        val signature = encodeURI(Base64.getEncoder().encodeToString(signatureMethod(stringToSign)))
+        val signature =
+            encodeURI(Base64.getEncoder().encodeToString(signatureMethod(sk, stringToSign)))
         queryString += "&Signature=$signature"
         try {
             val request: HttpRequest? = HttpRequest.newBuilder()
@@ -98,13 +110,12 @@ object TranslateUtils {
     }
 
     @Throws(java.lang.Exception::class)
-    private fun signatureMethod(stringToSign: String?): ByteArray? {
-        val secret = "V3FWRGI3c210UW9rOGJUOXF2VHhENnYzbmF1bjU1Jg=="
+    private fun signatureMethod(sk: String, stringToSign: String?): ByteArray? {
         if (stringToSign == null) {
             return null
         }
         val sha256Hmac = Mac.getInstance("HmacSHA1")
-        val secretKey = SecretKeySpec(mapValue(secret), "HmacSHA1")
+        val secretKey = SecretKeySpec("$sk&".toByteArray(), "HmacSHA1")
         sha256Hmac.init(secretKey)
         return sha256Hmac.doFinal(stringToSign.toByteArray())
     }
@@ -137,10 +148,6 @@ object TranslateUtils {
             sb.append("&")
         }
         return sb.deleteCharAt(sb.length - 1).toString()
-    }
-
-    private fun mapValue(value: String): ByteArray {
-        return Base64.getDecoder().decode(value)
     }
 
     private fun encodeURI(content: String): String {

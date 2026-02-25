@@ -24,7 +24,7 @@ intellijPlatform {
     pluginConfiguration {
         group = "com.wanggaowan.android.dev.tools"
         name = "AndroidDevTools"
-        version = "2.5"
+        version = "2.6"
 
         ideaVersion {
             sinceBuild = "243"
