@@ -271,24 +271,25 @@ object TranslateUtils {
 
         val matchResult = regex.find(text, offset) ?: return text
         val start = matchResult.range.first
+        // end最大值是字符长度-1，不是字符的长度,
         val end = matchResult.range.last
         var translateText = text
-        var chart = translateText.substring(start - 1, start)
+        var chart = if(start > 0)  translateText.substring(start - 1, start) else ""
         var offset = 0
         val numberRegex = Regex("[a-zA-Z0-9]")
-        if (chart.matches(numberRegex)) {
+        if (!chart.isEmpty() && chart.matches(numberRegex)) {
             translateText =
                 "${translateText.take(start)} ${translateText.substring(start)}"
             offset++
         }
 
         val totalLength = translateText.length
-        if (end + offset >= totalLength) {
+        if (end + offset + 1 >= totalLength) {
             return translateText
         }
 
         chart = translateText.substring(end + offset + 1, end + offset + 2)
-        if (chart.matches(numberRegex)) {
+        if (!chart.isEmpty() && chart.matches(numberRegex)) {
             translateText =
                 "${translateText.take(end + offset + 1)} ${translateText.substring(end + offset + 1)}"
             offset++
